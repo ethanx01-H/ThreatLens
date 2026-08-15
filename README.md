@@ -265,52 +265,119 @@ ThreatLens/
 
 ---
 
-## 🗺️ Roadmap
+## 🗺️ Roadmap — SOC Toolkit Arsenal
 
-### Tier 1 — High Impact
+ThreatLens is evolving into a comprehensive SOC toolkit. Here's the phased roadmap:
 
-| # | Feature | Why |
-|---|---------|-----|
-| 1 | **MISP / OpenCTI Integration** | Push IOCs to MISP — makes ThreatLens part of SOC workflow |
-| 2 | **Real-Time Watchlist** | Continuous monitoring, alert on risk score changes |
-| 3 | **Historical Database (SQLite)** | Track risk trends over time, query past analyses |
-| 4 | **VirusTotal Behavior Tab** | Sandbox behavior + MITRE ATT&CK technique mapping |
+### Phase 1 — Threat Intel Core ✅ (Current)
 
-### Tier 2 — Medium Impact
+| Feature | Status |
+|---------|--------|
+| Multi-source OSINT (7 sources) | ✅ Done |
+| Subdomain enumeration (crt.sh, OTX, Shodan, VT, brute force) | ✅ Done |
+| Wildcard search (*.domain.com, IP ranges, CIDR) | ✅ Done |
+| Risk scoring (3-tier, known-good whitelists) | ✅ Done |
+| Report generation (TXT/DOCX with Sigma/Splunk/Elastic rules) | ✅ Done |
+| CLI + GUI + Bulk analyze + STOP control | ✅ Done |
+| Settings panel (persistent API keys) | ✅ Done |
 
-| # | Feature | Why |
-|---|---------|-----|
-| 5 | **GreyNoise Integration** | Distinguish targeted attacks from internet noise |
-| 6 | **Screenshot Capture** | Visual evidence of suspicious domains in reports |
-| 7 | **YARA Rule Generation** | Auto-generate YARA from malware associations |
-| 8 | **STIX 2.1 Output** | Standard format for intel sharing |
-| 9 | **Slack/Teams Webhook** | Push alerts on CRITICAL/HIGH findings |
+### Phase 2 — Persistence & Monitoring (Next)
 
-### Tier 3 — Nice to Have
+| # | Feature | Description | Effort |
+|---|---------|-------------|--------|
+| 1 | **Historical Database (SQLite)** | Store every analysis, track risk trends, query history | 2-3 days |
+| 2 | **Real-Time Watchlist** | Add IOCs, periodic re-scan, alert on changes | 2-3 days |
+| 3 | **MISP Integration** | Push/pull IOCs, auto-create events | 3-4 days |
+| 4 | **Slack/Teams Webhook** | Push alerts on CRITICAL/HIGH findings | 1 day |
 
-| # | Feature | Why |
-|---|---------|-----|
-| 10 | **Censys Integration** | Internet-wide scan data |
-| 11 | **PassiveTotal (RiskIQ)** | WHOIS history, passive DNS, cert pivoting |
-| 12 | **Web Dashboard** | Browser UI for team collaboration |
-| 13 | **Sigma Auto-Tuning** | Adjust rule severity by risk score |
-| 14 | **Hash Analysis** | File hash lookup (VT, MalwareBazaar) |
-| 15 | **API Server Mode** | REST API for XSOAR/Tines playbook integration |
+### Phase 3 — SIEM Integration
 
-### Tier 4 — Ideas Backlog
+| # | Feature | Description | Effort |
+|---|---------|-------------|--------|
+| 5 | **API Server Mode (FastAPI)** | REST API for automated enrichment | 3-4 days |
+| 6 | **Splunk Integration** | Pull alerts, auto-investigate, push enrichment | 4-5 days |
+| 7 | **Elastic Integration** | Same as Splunk but for Elastic SIEM | 4-5 days |
+| 8 | **XSOAR/Tines Playbook** | Automated response workflows | 3-4 days |
 
-| # | Feature | Why |
-|---|---------|-----|
-| 16 | **DNS Zone Transfer Check** | Test if domain allows AXFR — reveals full DNS zone |
-| 17 | **SSL Certificate Analysis** | Parse cert details (issuer, SAN, expiry) for domain IOCs |
-| 18 | **Email Header Analysis** | Parse email headers for sender IP, SPF/DKIM/DMARC results |
-| 19 | **Phishing Detection** | Check domain against PhishTank, OpenPhish feeds |
-| 20 | **URL Scanning** | Accept full URLs as targets, extract domain/IP for analysis |
-| 21 | **WHOIS History** | Track domain registration changes over time |
-| 22 | **Recorded Future Integration** | Commercial threat intel with AI-powered risk scoring |
-| 23 | **MITRE ATT&CK Mapping** | Map detected signals to ATT&CK techniques and tactics |
-| 24 | **Export to CSV** | Bulk export IOC tables as CSV for SIEM import |
-| 25 | **Dark Web Monitoring** | Check if domain/IP appears in dark web breach data |
+### Phase 4 — Incident Response
+
+| # | Feature | Description | Effort |
+|---|---------|-------------|--------|
+| 9 | **IR Playbook Engine** | Structured playbooks for common incidents | 5-7 days |
+| 10 | **Evidence Collection** | Auto-collect logs, screenshots, memory dumps | 4-5 days |
+| 11 | **Timeline Builder** | Visualize attack progression | 3-4 days |
+| 12 | **IR Report Generator** | Full incident report with evidence chain | 3-4 days |
+
+### Phase 5 — Malware Analysis
+
+| # | Feature | Description | Effort |
+|---|---------|-------------|--------|
+| 13 | **Sandbox Integration** | Submit to VT, Hybrid Analysis, ANY.RUN | 3-4 days |
+| 14 | **YARA Rule Engine** | Scan files with YARA, generate rules | 4-5 days |
+| 15 | **Hash Analysis** | MD5/SHA1/SHA256 lookup across sources | 2-3 days |
+| 16 | **MITRE ATT&CK Mapping** | Map malware behavior to ATT&CK techniques | 3-4 days |
+
+### Phase 6 — Network Forensics
+
+| # | Feature | Description | Effort |
+|---|---------|-------------|--------|
+| 17 | **PCAP Analysis** | Analyze packet captures for IOCs | 5-7 days |
+| 18 | **DNS Log Analysis** | Detect DNS tunneling, DGA domains | 3-4 days |
+| 19 | **NetFlow Analysis** | Traffic patterns, data exfiltration detection | 4-5 days |
+| 20 | **SSL/TLS Inspection** | Certificate analysis, JA3 fingerprinting | 3-4 days |
+
+### Phase 7 — Advanced Analytics
+
+| # | Feature | Description | Effort |
+|---|---------|-------------|--------|
+| 21 | **Threat Actor Attribution** | Map IOCs to APT groups, ransomware families | 5-7 days |
+| 22 | **IOC Correlation Graph** | Visual infrastructure mapping | 4-5 days |
+| 23 | **ML Anomaly Detection** | Detect unusual patterns in network traffic | 7-10 days |
+| 24 | **Predictive Intelligence** | Forecast likely attack vectors | 5-7 days |
+
+### Phase 8 — Compliance & Reporting
+
+| # | Feature | Description | Effort |
+|---|---------|-------------|--------|
+| 25 | **Compliance Dashboard** | NIST, ISO 27001, PCI-DSS status | 5-7 days |
+| 26 | **Automated Reporting** | Weekly/monthly reports for management | 3-4 days |
+| 27 | **Audit Trail** | Full logging of all analyst actions | 2-3 days |
+| 28 | **Executive Dashboard** | KPIs, risk trends, team performance | 4-5 days |
+
+### Future Module Structure
+
+```
+soc-toolkit/
+├── core/                    # ThreatLens (existing)
+├── persistence/             # Phase 2 (database, watchlist, MISP, notifications)
+├── siem/                    # Phase 3 (API server, Splunk, Elastic, playbooks)
+├── incident_response/       # Phase 4 (IR playbooks, evidence, timeline)
+├── malware/                 # Phase 5 (sandbox, YARA, hash analysis)
+├── forensics/               # Phase 6 (PCAP, DNS logs, NetFlow, TLS)
+├── analytics/               # Phase 7 (attribution, correlation, ML)
+├── compliance/              # Phase 8 (dashboards, reporting, audit)
+├── web/                     # Web dashboard (Flask/FastAPI)
+└── gui/                     # Desktop GUI (tkinter/PyQt)
+```
+
+### Timeline
+
+| Phase | Focus | Duration | Cumulative |
+|-------|-------|----------|------------|
+| Phase 1 | Threat Intel Core | ✅ Done | Done |
+| Phase 2 | Persistence & Monitoring | 2-4 weeks | 1 month |
+| Phase 3 | SIEM Integration | 4-6 weeks | 2-3 months |
+| Phase 4 | Incident Response | 6-8 weeks | 4-5 months |
+| Phase 5 | Malware Analysis | 4-6 weeks | 6-7 months |
+| Phase 6 | Network Forensics | 4-6 weeks | 8-9 months |
+| Phase 7 | Advanced Analytics | 6-8 weeks | 10-12 months |
+| Phase 8 | Compliance & Reporting | 4-6 weeks | 12-14 months |
+
+**Total to full SOC toolkit: ~12-14 months**
+
+### Priority Recommendation
+
+Start with **Phase 2** (Historical Database + Watchlist + MISP + Notifications) — this is the foundation for everything else and makes ThreatLens production-ready for SOC teams.
 
 ---
 
