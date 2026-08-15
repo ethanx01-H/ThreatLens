@@ -348,7 +348,8 @@ def investigate_domain(domain: str, skip_ports: bool = False) -> dict:
     # ── Phase 3: Risk Assessment ───────────────────────────────
     print_subsection("Phase 3: Risk Assessment")
     results["risk"] = calculate_domain_risk(
-        otx=results.get("otx"),
+                domain=domain,
+                otx=results.get("otx"),
         vt=results.get("vt"),
         threatfox=results.get("threatfox"),
         urlhaus=results.get("urlhaus"),
@@ -380,9 +381,35 @@ def print_full_report(results: dict):
     print(f"  {Colors.BOLD}Timestamp:{Colors.RESET}  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  {Colors.BOLD}Duration:{Colors.RESET}   {elapsed}s")
 
+    # Known-good indicator
+    if risk.get("is_known_good"):
+        print(f"  {Colors.GREEN}{Colors.BOLD}KNOWN LEGITIMATE{Colors.RESET} — {risk.get('known_good_reason', '')}")
+
+    # Source verification status
+    source_statuses = risk.get("source_statuses", {})
+    not_checked = risk.get("not_checked_sources", [])
+    if source_statuses:
+        print(f"\n  {Colors.BOLD}Source Verification:{Colors.RESET}")
+        for src, status in source_statuses.items():
+            if status == "CHECKED":
+                print(f"    {src:<16s} {Colors.GREEN}CHECKED{Colors.RESET}")
+            else:
+                print(f"    {src:<16s} {Colors.YELLOW}NOT CHECKED{Colors.RESET}")
+
     # Risk badge
     print(f"\n  {Colors.BOLD}Risk Assessment:{Colors.RESET}")
     print_risk_badge_terminal(risk["classification"], risk["score"])
+
+    # Not-checked warning
+    if not_checked:
+        print(f"  {Colors.YELLOW}WARNING: Sources NOT checked: {', '.join(not_checked)}{Colors.RESET}")
+        print(f"  {Colors.YELLOW}Assessment may be incomplete. Configure API keys.{Colors.RESET}")
+
+    # Mitigations
+    if risk.get("mitigations"):
+        print(f"\n  {Colors.BOLD}Mitigating Factors:{Colors.RESET}")
+        for m in risk["mitigations"]:
+            print(f"    {Colors.GREEN}*{Colors.RESET} {m}")
 
     # Score breakdown bar
     print(f"  {Colors.BOLD}Score Breakdown:{Colors.RESET}")
@@ -418,8 +445,12 @@ def print_full_report(results: dict):
             sev = sig["severity"]
             color = {"CRITICAL": Colors.RED, "HIGH": Colors.YELLOW,
                      "MEDIUM": Colors.YELLOW, "LOW": Colors.GREEN}.get(sev, "")
+            tier = sig.get("tier", "?")
+            interp = sig.get("interpretation", "")
             print(f"  {Colors.BOLD}{i:2d}.{Colors.RESET} [{color}{sev}{Colors.RESET}] "
-                  f"{sig['source']}: {sig['signal']} (weight: +{sig['weight']})")
+                  f"{sig['source']}: {sig['signal']} (+{sig['weight']}) T{tier}")
+            if interp:
+                print(f"    {Colors.DIM}{interp}{Colors.RESET}")
     else:
         print(f"  {Colors.GREEN}No significant threat signals detected.{Colors.RESET}")
 

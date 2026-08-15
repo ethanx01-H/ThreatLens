@@ -372,8 +372,12 @@ class RepToolApp:
     # ─── API Key Management ───────────────────────────────────
 
     def _keys_file_path(self):
-        """Path to api_keys.json — next to the exe or script."""
-        return os.path.join(BUNDLE_DIR, "api_keys.json")
+        """Path to api_keys.json — persistent user location."""
+        try:
+            from config import APPDATA_DIR
+            return str(APPDATA_DIR / "api_keys.json")
+        except ImportError:
+            return os.path.join(BUNDLE_DIR, "api_keys.json")
 
     def _load_api_keys(self):
         """Load API keys from api_keys.json."""
@@ -855,6 +859,7 @@ class RepToolApp:
                 )
             else:
                 results["risk"] = calculate_domain_risk(
+                    domain=target,
                     otx=results.get("otx"), vt=results.get("vt"),
                     threatfox=results.get("threatfox"), urlhaus=results.get("urlhaus"),
                     recon=results.get("recon"),
@@ -870,7 +875,23 @@ class RepToolApp:
             wl(f"  Target:     {target}")
             wl(f"  Type:       {'IP' if is_ip else 'DOMAIN'}")
             wl(f"  Duration:   {elapsed}s")
+
+            # Known-good indicator
+            if risk.get("is_known_good"):
+                wl(f"  Status:     KNOWN LEGITIMATE - {risk.get('known_good_reason', '')}", "success")
             wl()
+
+            # Source verification status
+            source_statuses = risk.get("source_statuses", {})
+            not_checked = risk.get("not_checked_sources", [])
+            if source_statuses:
+                wl("  Source Verification:", "accent")
+                for src, status in source_statuses.items():
+                    if status == "CHECKED":
+                        wl(f"    {src:<16s} CHECKED", "success")
+                    else:
+                        wl(f"    {src:<16s} NOT CHECKED", "warning")
+                wl()
 
             # Risk badge
             classification = risk["classification"]
@@ -879,7 +900,19 @@ class RepToolApp:
             w(f"  Risk: ", "accent")
             self.root.after(0, lambda: self._write_badge(classification, score))
             wl()
-            wl()
+
+            # Not-checked warning
+            if not_checked:
+                wl(f"  WARNING: Sources NOT checked: {', '.join(not_checked)}", "warning")
+                wl(f"  Assessment may be incomplete. Add API keys in SETTINGS.", "warning")
+                wl()
+
+            # Mitigations
+            if risk.get("mitigations"):
+                wl("  Mitigating Factors:", "accent")
+                for m in risk["mitigations"]:
+                    wl(f"    * {m}", "success")
+                wl()
 
             # Score breakdown
             signals = risk.get("signals", [])
@@ -900,9 +933,13 @@ class RepToolApp:
                 for i, sig in enumerate(signals, 1):
                     sev = sig["severity"]
                     sev_tag = {"CRITICAL": "danger", "HIGH": "warning", "MEDIUM": "warning", "LOW": "success"}.get(sev, "dim")
+                    tier = sig.get("tier", "?")
+                    interp = sig.get("interpretation", "")
                     w(f"  {i:2d}. ", "stdout")
                     w(f"[{sev}]", sev_tag)
-                    wl(f" {sig['source']}: {sig['signal']} (+{sig['weight']})")
+                    wl(f" {sig['source']}: {sig['signal']} (+{sig['weight']}) T{tier}")
+                    if interp:
+                        wl(f"      {interp}", "dim")
             else:
                 wl("  No significant threat signals detected.", "success")
 

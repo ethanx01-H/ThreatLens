@@ -2,27 +2,54 @@
 Configuration & API Key Management for IP/Domain Reputation Tool
 Threat Intelligence Investigation
 
-API keys are loaded from environment variables or a .env file.
-Free-tier APIs (IPInfo, OTX, ThreatFox, URLhaus) work without keys.
+API keys are loaded from persistent user storage (%APPDATA% on Windows).
+Supports: env vars > .env file > appdata api_keys.json > bundled api_keys.json
 """
 
 import os
+import sys
 import json
 from pathlib import Path
 
 # ─── Paths ────────────────────────────────────────────────────────
 TOOL_DIR = Path(__file__).parent
 ENV_FILE = TOOL_DIR / ".env"
-KEYS_FILE = TOOL_DIR / "api_keys.json"
+
+def _get_appdata_dir() -> Path:
+    """Get persistent config directory. Fixed location, not portable."""
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA", os.path.expanduser("~\\AppData\\Roaming"))
+        return Path(base) / "IPDomain-Reputation-Tool"
+    else:
+        # Linux/macOS
+        base = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+        return Path(base) / "ip-domain-reputation-tool"
+
+APPDATA_DIR = _get_appdata_dir()
+APPDATA_KEYS_FILE = APPDATA_DIR / "api_keys.json"
+BUNDLED_KEYS_FILE = TOOL_DIR / "api_keys.json"
+
+# Create appdata directory on import
+try:
+    APPDATA_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 
 # ─── API Key Sources ──────────────────────────────────────────────
-# Priority: env var > .env file > api_keys.json > None (free-tier fallback)
+# Priority: env var > .env file > appdata api_keys.json > bundled api_keys.json
 
 def _load_json_keys():
-    """Load keys from api_keys.json if it exists."""
-    if KEYS_FILE.exists():
+    """Load keys from persistent appdata location, then bundled fallback."""
+    # Try persistent location first
+    if APPDATA_KEYS_FILE.exists():
         try:
-            return json.loads(KEYS_FILE.read_text())
+            return json.loads(APPDATA_KEYS_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    # Fallback to bundled
+    if BUNDLED_KEYS_FILE.exists():
+        try:
+            return json.loads(BUNDLED_KEYS_FILE.read_text())
         except (json.JSONDecodeError, OSError):
             pass
     return {}
@@ -76,28 +103,28 @@ MALWAREBAZAAR_BASE = "https://mb-api.abuse.ch/api/v1"
 
 # ─── Risk Classification Thresholds ──────────────────────────────
 RISK_THRESHOLDS = {
-    "CRITICAL": 80,   # score >= 80
-    "HIGH":     60,   # score >= 60
-    "MEDIUM":   35,   # score >= 35
-    "LOW":      0,    # score < 35
+    "CRITICAL": 80,
+    "HIGH":     60,
+    "MEDIUM":   35,
+    "LOW":      0,
 }
 
-# ─── Risk Score Weights ──────────────────────────────────────────
+# ─── Risk Score Weights (v2 — tiered) ─────────────────────────────
 WEIGHTS = {
-    "otx_pulses":           15,   # per pulse (capped at 5 pulses = 75)
+    "otx_pulses":           15,
     "otx_pulse_cap":         5,
-    "abuse_confidence":     25,   # scaled by percentage
-    "vt_malicious":         20,   # per vendor flagging (capped)
+    "abuse_confidence":     25,
+    "vt_malicious":         20,
     "vt_malicious_cap":      5,
-    "shodan_vulns":         10,   # per CVE (capped)
+    "shodan_vulns":         10,
     "shodan_vuln_cap":       3,
-    "threatfox_iocs":       15,   # per IOC association
-    "urlhaus_listed":       15,   # flat bonus if listed
-    "open_ports_risk":       5,   # per high-risk port
-    "high_risk_ports":       3,   # cap
-    "no_reverse_dns":        5,   # suspicious if cloud-hosted
-    "known_bad_asn":        10,   # ASN on threat list
-    "tor_exit_node":        15,   # flat bonus
+    "threatfox_iocs":       15,
+    "urlhaus_listed":       15,
+    "open_ports_risk":       5,
+    "high_risk_ports":       3,
+    "no_reverse_dns":        5,
+    "known_bad_asn":        10,
+    "tor_exit_node":        15,
 }
 
 # ─── High-Risk Ports ─────────────────────────────────────────────
@@ -127,12 +154,52 @@ OTX_MEDIUM_TAGS = {
     "tor", "vpn", "mining", "cryptominer", "ddos",
 }
 
-# ─── Known Bad ASNs (commonly associated with bulletproof hosting) ─
-KNOWN_BAD_ASNS = {
-    "AS14061",  # DigitalOcean (heavily abused)
-    "AS16276",  # OVH
-    "AS14618",  # AWS (high volume, not inherently bad)
+# ─── Known-Good Domains (suppress false positives) ────────────────
+KNOWN_GOOD_DOMAINS = {
+    "google.com", "googleapis.com", "google.co.uk", "google.de", "google.fr",
+    "google.co.jp", "google.com.au", "google.ca", "google.com.br",
+    "googleapis.com", "gstatic.com", "ggpht.com", "googleusercontent.com",
+    "youtube.com", "ytimg.com", "googlevideo.com",
+    "microsoft.com", "windows.com", "windowsupdate.com", "office.com",
+    "office365.com", "live.com", "outlook.com", "microsoftonline.com",
+    "azure.com", "azurewebsites.net", "blob.core.windows.net",
+    "amazon.com", "amazonaws.com", "aws.amazon.com",
+    "cloudflare.com", "cloudflare-dns.com",
+    "apple.com", "icloud.com", "mzstatic.com",
+    "facebook.com", "fbcdn.net", "instagram.com", "whatsapp.com",
+    "github.com", "githubusercontent.com",
+    "twitter.com", "x.com", "twimg.com",
+    "netflix.com", "nflxvideo.net",
+    "akamai.com", "akamaized.net", "akamaihd.net",
+    "fastly.net", "fastly.com",
+    "linkedin.com",
+    "wikipedia.org", "wikimedia.org",
+    "mozilla.org", "mozilla.com",
+    "ubuntu.com", "debian.org",
+    "stackoverflow.com",
+    "reddit.com", "redd.it",
+    "zoom.us", "zoom.com",
+    "slack.com",
+    "dropbox.com",
+}
+
+# ─── Known-Good ASNs (major cloud/CDN providers) ──────────────────
+KNOWN_GOOD_ASNS = {
+    "AS15169",  # Google LLC
+    "AS16509",  # Amazon (AWS)
+    "AS14618",  # Amazon (AWS us-east)
+    "AS8075",   # Microsoft Corporation
+    "AS13335",  # Cloudflare
+    "AS714",    # Apple Inc.
+    "AS32934",  # Facebook/Meta
+    "AS2906",   # Netflix
+    "AS20940",  # Akamai
+    "AS54113",  # Fastly
     "AS16509",  # AWS
+}
+
+# ─── Known Bad ASNs (bulletproof hosting — REMOVED major cloud) ───
+KNOWN_BAD_ASNS = {
     "AS57043",  # HOSTKEY
     "AS49981",  # WorldStream
     "AS46664",  # VolumeDrive
@@ -140,7 +207,6 @@ KNOWN_BAD_ASNS = {
     "AS40676",  # Psychz Networks
     "AS62904",  # Eonix
     "AS42831",  # UK Dedicated Servers
-    "AS20001",  # DataPipe
     "AS53667",  # FranTech Solutions (BuyVM)
     "AS44477",  # Stark Industries
     "AS48693",  # Reba Communications
@@ -153,10 +219,10 @@ REPORT_ORG = "SOC Team"
 REPORT_LANGUAGE = "en"
 
 # ─── Scan Settings ────────────────────────────────────────────────
-PORT_SCAN_TIMEOUT = 2       # seconds per port
-HTTP_TIMEOUT = 10           # seconds for API calls
-MAX_RETRIES = 2             # retry failed API calls
-DNS_TIMEOUT = 5             # seconds for DNS queries
+PORT_SCAN_TIMEOUT = 2
+HTTP_TIMEOUT = 10
+MAX_RETRIES = 2
+DNS_TIMEOUT = 5
 
 # ─── ASCII Banner ────────────────────────────────────────────────
 BANNER = r"""
@@ -167,7 +233,7 @@ BANNER = r"""
 ║  |  __/| |___ | |  \ / ___ \| |_| |                             ║
 ║  |_|   |_____|___| \_/_/   \_\____/  Reputation Tool v1.0       ║
 ║                                                                  ║
-║  IP/Domain Threat Intelligence Investigation    ║
+║  IP/Domain Threat Intelligence Investigation                     ║
 ║  Multi-Source OSINT | Risk Scoring | Professional Reporting      ║
 ╚══════════════════════════════════════════════════════════════════╝
 """
