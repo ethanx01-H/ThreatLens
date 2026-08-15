@@ -1,6 +1,6 @@
 """
 Configuration & API Key Management for IP/Domain Reputation Tool
-SOC L3 Analyst - Threat Intelligence Investigation
+Threat Intelligence Investigation
 
 API keys are loaded from environment variables or a .env file.
 Free-tier APIs (IPInfo, OTX, ThreatFox, URLhaus) work without keys.
@@ -167,7 +167,7 @@ BANNER = r"""
 ║  |  __/| |___ | |  \ / ___ \| |_| |                             ║
 ║  |_|   |_____|___| \_/_/   \_\____/  Reputation Tool v1.0       ║
 ║                                                                  ║
-║  SOC L3 Analyst — IP/Domain Threat Intelligence Investigation    ║
+║  IP/Domain Threat Intelligence Investigation    ║
 ║  Multi-Source OSINT | Risk Scoring | Professional Reporting      ║
 ╚══════════════════════════════════════════════════════════════════╝
 """

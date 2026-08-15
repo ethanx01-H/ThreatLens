@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IP/Domain Reputation Tool v1.0 — SOC L3 Analyst
+IP/Domain Reputation Tool v1.0
 Multi-source OSINT investigation with risk scoring and professional reporting.
 
 Usage:
@@ -494,7 +494,7 @@ def print_full_report(results: dict):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="IP/Domain Reputation Tool — SOC L3 Analyst",
+        description="IP/Domain Reputation Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -523,7 +523,7 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
                         help="Skip port scanning (faster)")
     parser.add_argument("--skip-tor", action="store_true",
                         help="Skip TOR exit node check")
-    parser.add_argument("--analyst", type=str, default="SOC L3 Analyst",
+    parser.add_argument("--analyst", type=str, default="Threat Intel Analyst",
                         help="Analyst name for report")
     parser.add_argument("--classification", type=str, default="CONFIDENTIAL",
                         help="Report classification level")

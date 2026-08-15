@@ -1,6 +1,6 @@
 # 🛡️ IP/Domain Reputation Tool v1.0
 
-**SOC L3 Analyst — Multi-Source Threat Intelligence Investigation**
+**Multi-Source Threat Intelligence Investigation**
 
 A comprehensive CLI tool for investigating IP addresses and domain names using
 7 OSINT sources, network reconnaissance, weighted risk scoring, and professional
@@ -146,7 +146,7 @@ options:
   --json, -j                Output results as JSON
   --skip-ports              Skip port scanning (faster investigation)
   --skip-tor                Skip TOR exit node list check
-  --analyst ANALYST         Analyst name for report (default: SOC L3 Analyst)
+  --analyst ANALYST         Analyst name for report (default: Threat Intel Analyst)
   --classification LEVEL    Report classification (default: CONFIDENTIAL)
   --quiet, -q               JSON-only output, suppress terminal report
   --batch, -b FILE          Batch mode: one IP/domain per line
@@ -239,4 +239,4 @@ Contributions welcome! Areas for improvement:
 
 ---
 
-*Built for SOC L3 Analysts. Tested on WSL (Ubuntu) and Linux.*
+*Built for security analysts and threat researchers. Tested on WSL (Ubuntu) and Linux.*
