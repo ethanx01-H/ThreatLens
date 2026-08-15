@@ -6,6 +6,8 @@ Handles DNS lookups, WHOIS, port scanning, and reverse DNS for IP/Domain investi
 import socket
 import subprocess
 import time
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from typing import Dict, List, Any, Optional
 from config import SCAN_PORTS, PORT_SCAN_TIMEOUT, DNS_TIMEOUT
 

@@ -819,6 +819,8 @@ class RepToolApp:
         from risk_engine import calculate_ip_risk, calculate_domain_risk
 
         skip_ports = self.skip_ports_var.get()
+        skip_tor = self.skip_tor_var.get()
+        json_output = self.json_var.get()
         results = {"target": target, "target_type": "ip" if is_ip else "domain"}
         start_time = time.time()
 
@@ -851,11 +853,21 @@ class RepToolApp:
             else:
                 results["recon"] = full_ip_recon(target)
 
+            # TOR check
+            if not skip_tor:
+                wst("TOR", "Checking...")
+                is_tor = check_tor_exit(target)
+                results["is_tor"] = is_tor
+                wst("TOR", "EXIT NODE" if is_tor else "Not a TOR exit", "danger" if is_tor else "success")
+            else:
+                results["is_tor"] = False
+
             results["risk"] = calculate_ip_risk(
                 ipinfo=results.get("ipinfo"), otx=results.get("otx"),
                 abuseipdb=results.get("abuseipdb"), vt=results.get("vt"),
                 shodan=results.get("shodan"), threatfox=results.get("threatfox"),
-                urlhaus=results.get("urlhaus"), recon=results.get("recon"))
+                urlhaus=results.get("urlhaus"), recon=results.get("recon"),
+                is_tor=results.get("is_tor", False))
 
         else:
             results["otx"] = query_otx_domain(target)
@@ -894,6 +906,13 @@ class RepToolApp:
 
         if risk.get("not_checked_sources"):
             wl(f"  NOT CHECKED: {', '.join(risk['not_checked_sources'])}", "warning")
+
+        # JSON output
+        if json_output:
+            json_out = {k: v for k, v in results.items() if k != "is_tor"}
+            import json as _json
+            wl(f"\n  JSON Output:", "info")
+            wl(_json.dumps(json_out, indent=2, default=str))
 
         # Accumulate
         self.all_results.append(results)
