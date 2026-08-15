@@ -72,6 +72,9 @@ class Theme:
     @classmethod
     def set_theme(cls, theme_dict):
         cls._theme = theme_dict.copy()
+        # Update class attributes so Theme.BG, Theme.FG etc. work
+        for key, value in theme_dict.items():
+            setattr(cls, key, value)
 
     @classmethod
     def get(cls, key):
@@ -1082,14 +1085,97 @@ class RepToolApp:
         border = Theme.BORDER
         hdr = Theme.BG_HEADER
         inp = Theme.BG_INPUT
-        btn = Theme.BG_BUTTON
+        output = Theme.BG_OUTPUT
         status_bg = Theme.BG_STATUS
 
         # Root
         self.root.configure(bg=bg)
 
-        # Update all frames and labels recursively
-        self._apply_to_widget(self.root)
+        # Update specific named widgets if they exist
+        try:
+            # Header bar
+            for child in self.root.winfo_children():
+                wtype = child.winfo_class()
+                if wtype == "Frame":
+                    try:
+                        child_bg = child.cget("bg")
+                        # Header frame (has blue/black bg)
+                        if child_bg in ("#000000", BLUE, "#2791f5"):
+                            child.configure(bg=hdr)
+                            for sub in child.winfo_children():
+                                try:
+                                    sub.configure(bg=hdr)
+                                except:
+                                    pass
+                        # Input section
+                        elif child_bg in ("#141414", "#f5f8fc", BLUE_LIGHT):
+                            child.configure(bg=bg2)
+                            for sub in child.winfo_children():
+                                try:
+                                    sub.configure(bg=bg2)
+                                except:
+                                    pass
+                        # Status bar
+                        elif child_bg in ("#111111", "#f0f4f8"):
+                            child.configure(bg=status_bg)
+                            for sub in child.winfo_children():
+                                try:
+                                    sub.configure(bg=status_bg)
+                                except:
+                                    pass
+                        else:
+                            child.configure(bg=bg)
+                    except:
+                        pass
+                elif wtype == "Text":
+                    child.configure(bg=output, fg=fg, insertbackground=fg)
+        except:
+            pass
+
+        # Update output text area
+        try:
+            self.output_text.configure(bg=output, fg=fg, insertbackground=fg)
+        except:
+            pass
+
+        # Update header buttons
+        try:
+            self.settings_btn.configure(bg=hdr)
+            self.theme_btn.configure(bg=hdr)
+        except:
+            pass
+
+        # Update input entry
+        try:
+            self.target_entry.configure(
+                bg=inp, fg=accent, insertbackground=accent,
+                highlightbackground=border, highlightcolor=Theme.BORDER_FOCUS)
+        except:
+            pass
+
+        # Update checkboxes
+        try:
+            for child in self.root.winfo_children():
+                self._update_checkboxes(child)
+        except:
+            pass
+
+    def _update_checkboxes(self, widget):
+        """Update checkbox colors recursively."""
+        try:
+            if widget.winfo_class() == "Checkbutton":
+                parent_bg = Theme.BG_SECONDARY
+                try:
+                    parent_bg = widget.master.cget("bg")
+                except:
+                    pass
+                widget.configure(bg=parent_bg, fg=Theme.FG_DIM,
+                               selectcolor=Theme.BG_INPUT,
+                               activebackground=parent_bg)
+        except:
+            pass
+        for child in widget.winfo_children():
+            self._update_checkboxes(child)
 
     def _apply_to_widget(self, widget):
         """Recursively apply theme to widget tree."""
