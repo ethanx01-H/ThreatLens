@@ -106,9 +106,22 @@ class RepToolApp:
         # State
         self.running = False
         self.last_results = None
+        self.api_keys = self._load_api_keys()
 
         self._build_ui()
         self._setup_tags()
+
+        # Hot-reload any saved API keys into config at startup
+        if self.api_keys:
+            try:
+                import config as cfg
+                cfg.VIRUSTOTAL_KEY = self.api_keys.get("virustotal", cfg.VIRUSTOTAL_KEY)
+                cfg.ABUSEIPDB_KEY = self.api_keys.get("abuseipdb", cfg.ABUSEIPDB_KEY)
+                cfg.SHODAN_KEY = self.api_keys.get("shodan", cfg.SHODAN_KEY)
+                cfg.OTX_KEY = self.api_keys.get("otx", cfg.OTX_KEY)
+                cfg.IPINFO_KEY = self.api_keys.get("ipinfo", cfg.IPINFO_KEY)
+            except Exception:
+                pass
 
     def _build_ui(self):
         """Construct the entire UI."""
@@ -124,6 +137,17 @@ class RepToolApp:
             font=(Theme.FONT_FAMILY_UI, 13, "bold"),
             anchor="w", padx=16,
         ).pack(side=LEFT, fill=BOTH, expand=True)
+
+        self.settings_btn = Button(
+            header, text="\u2699  SETTINGS",
+            bg=Theme.BG_HEADER, fg=Theme.FG_DIM,
+            activebackground=Theme.BG_BUTTON_HOVER, activeforeground=Theme.FG_ACCENT,
+            font=(Theme.FONT_FAMILY_UI, 9),
+            relief="flat", bd=0, padx=12, pady=4,
+            cursor="hand2",
+            command=self._show_settings,
+        )
+        self.settings_btn.pack(side=RIGHT, padx=(0, 4))
 
         Label(
             header, text="v1.0",
@@ -344,6 +368,206 @@ class RepToolApp:
     def _write_badge(self, classification, score):
         tag = f"badge_{classification.lower()}"
         self._writeln(f"  [{classification} ({score}/100)]", tag)
+
+    # ─── API Key Management ───────────────────────────────────
+
+    def _keys_file_path(self):
+        """Path to api_keys.json — next to the exe or script."""
+        return os.path.join(BUNDLE_DIR, "api_keys.json")
+
+    def _load_api_keys(self):
+        """Load API keys from api_keys.json."""
+        path = self._keys_file_path()
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, OSError):
+                pass
+        return {}
+
+    def _save_api_keys(self, keys):
+        """Save API keys to api_keys.json."""
+        path = self._keys_file_path()
+        with open(path, "w") as f:
+            json.dump(keys, f, indent=2)
+        self.api_keys = keys
+
+    def _mask_key(self, key):
+        """Mask an API key: show only last 4 characters."""
+        if not key or len(key) < 8:
+            return key if key else ""
+        return "\u2022" * (len(key) - 4) + key[-4:]
+
+    # ─── Settings Dialog ─────────────────────────────────────
+
+    def _show_settings(self):
+        """Open the API key settings dialog."""
+        dialog = Toplevel(self.root)
+        dialog.title("Settings — API Keys")
+        dialog.geometry("520x440")
+        dialog.configure(bg=Theme.BG)
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Dark title bar
+        try:
+            import ctypes
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, 20, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int)
+            )
+        except Exception:
+            pass
+
+        # Center on parent
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 260
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 220
+        dialog.geometry(f"+{x}+{y}")
+
+        # ── Header ─────────────────────────────────────────
+        hdr = Frame(dialog, bg=Theme.BG_HEADER, height=40)
+        hdr.pack(fill=X)
+        hdr.pack_propagate(False)
+        Label(hdr, text="  API KEY CONFIGURATION",
+              bg=Theme.BG_HEADER, fg=Theme.FG_ACCENT,
+              font=(Theme.FONT_FAMILY_UI, 11, "bold")).pack(side=LEFT, padx=12)
+
+        # ── Body ────────────────────────────────────────────
+        body = Frame(dialog, bg=Theme.BG, padx=20, pady=12)
+        body.pack(fill=BOTH, expand=True)
+
+        Label(body, text="Enter API keys below. Keys are masked after saving.\nFree-tier sources (IPInfo, OTX) work without keys.",
+              bg=Theme.BG, fg=Theme.FG_DIM,
+              font=(Theme.FONT_FAMILY_UI, 9), justify=LEFT, anchor="w").pack(fill=X, pady=(0, 12))
+
+        # API key definitions: (json_key, label, description)
+        api_defs = [
+            ("virustotal", "VirusTotal", "virustotal.com/gui/my-apikey"),
+            ("abuseipdb", "AbuseIPDB", "abuseipdb.com/account/api"),
+            ("shodan", "Shodan", "account.shodan.io"),
+            ("otx", "AlienVault OTX", "otx.alienvault.com/api"),
+            ("ipinfo", "IPInfo", "ipinfo.io/account/token"),
+        ]
+
+        # Build field widgets
+        key_vars = {}      # json_key -> StringVar (actual value)
+        entry_widgets = {} # json_key -> Entry widget
+        show_states = {}   # json_key -> BooleanVar (show/hide toggle)
+
+        for json_key, label, url in api_defs:
+            row = Frame(body, bg=Theme.BG)
+            row.pack(fill=X, pady=3)
+
+            # Label
+            Label(row, text=label, bg=Theme.BG, fg=Theme.FG,
+                  font=(Theme.FONT_FAMILY_UI, 9, "bold"), width=14, anchor="w").pack(side=LEFT)
+
+            # Current saved value
+            current = self.api_keys.get(json_key, "")
+            var = StringVar(value=current)
+            key_vars[json_key] = var
+
+            # Entry
+            entry = Entry(row, textvariable=var,
+                          bg=Theme.BG_INPUT, fg=Theme.FG_ACCENT,
+                          insertbackground=Theme.FG_ACCENT,
+                          font=(Theme.FONT_FAMILY, 10), relief="flat",
+                          highlightthickness=1, highlightbackground=Theme.BORDER,
+                          highlightcolor=Theme.BORDER_FOCUS, show="\u2022")
+            entry.pack(side=LEFT, fill=X, expand=True, padx=(0, 6), ipady=4)
+            entry_widgets[json_key] = entry
+
+            # Show/Hide toggle
+            show_var = BooleanVar(value=False)
+            show_states[json_key] = show_var
+
+            def _toggle(key=json_key, sv=show_var, e=entry):
+                if sv.get():
+                    e.configure(show="\u2022")
+                    sv.set(False)
+                else:
+                    e.configure(show="")
+                    sv.set(True)
+
+            toggle_btn = Button(row, text="SHOW", width=5,
+                                bg=Theme.BG_BUTTON, fg=Theme.FG_DIM,
+                                activebackground=Theme.BG_BUTTON_HOVER,
+                                activeforeground=Theme.FG,
+                                font=(Theme.FONT_FAMILY_UI, 8), relief="flat",
+                                cursor="hand2", command=_toggle,
+                                highlightthickness=1, highlightbackground=Theme.BORDER)
+            toggle_btn.pack(side=LEFT)
+
+            # URL hint
+            Label(body, text=f"  {url}", bg=Theme.BG, fg=Theme.FG_MUTED,
+                  font=(Theme.FONT_FAMILY_UI, 8), anchor="w").pack(fill=X, padx=(14, 0))
+
+        # ── Buttons ─────────────────────────────────────────
+        btn_frame = Frame(dialog, bg=Theme.BG, padx=20, pady=12)
+        btn_frame.pack(fill=X, side="bottom")
+
+        # Separator
+        Frame(dialog, bg=Theme.BORDER, height=1).pack(fill=X, side="bottom")
+
+        def _on_save():
+            # Collect non-empty keys
+            new_keys = {}
+            for json_key, var in key_vars.items():
+                val = var.get().strip()
+                if val:
+                    new_keys[json_key] = val
+
+            self._save_api_keys(new_keys)
+
+            # Hot-reload into config module so analysis picks them up immediately
+            try:
+                import config as cfg
+                cfg.VIRUSTOTAL_KEY = new_keys.get("virustotal", "")
+                cfg.ABUSEIPDB_KEY = new_keys.get("abuseipdb", "")
+                cfg.SHODAN_KEY = new_keys.get("shodan", "")
+                cfg.OTX_KEY = new_keys.get("otx", "")
+                cfg.IPINFO_KEY = new_keys.get("ipinfo", "")
+            except Exception:
+                pass
+
+            count = len(new_keys)
+            self.status_var.set(f"Settings saved: {count} API key(s) configured.")
+            self._writeln(f"  Settings saved: {count} API key(s) configured.\n", "success")
+            dialog.destroy()
+
+        def _on_clear_all():
+            for var in key_vars.values():
+                var.set("")
+
+        def _on_cancel():
+            dialog.destroy()
+
+        Button(btn_frame, text="SAVE", bg=Theme.FG_ACCENT, fg=Theme.BG,
+               activebackground=Theme.FG_DIM, activeforeground=Theme.BG,
+               font=(Theme.FONT_FAMILY_UI, 10, "bold"), relief="flat",
+               padx=24, pady=6, cursor="hand2", command=_on_save).pack(side=RIGHT)
+
+        Button(btn_frame, text="CANCEL", bg=Theme.BG_BUTTON, fg=Theme.FG,
+               activebackground=Theme.BG_BUTTON_HOVER, activeforeground=Theme.FG,
+               font=(Theme.FONT_FAMILY_UI, 10), relief="flat",
+               padx=16, pady=6, cursor="hand2", command=_on_cancel,
+               highlightthickness=1, highlightbackground=Theme.BORDER).pack(side=RIGHT, padx=(0, 8))
+
+        Button(btn_frame, text="CLEAR ALL", bg=Theme.BG_BUTTON, fg=Theme.FG_DIM,
+               activebackground=Theme.BG_BUTTON_HOVER, activeforeground=Theme.FG,
+               font=(Theme.FONT_FAMILY_UI, 9), relief="flat",
+               padx=10, pady=6, cursor="hand2", command=_on_clear_all,
+               highlightthickness=1, highlightbackground=Theme.BORDER).pack(side=LEFT)
+
+        # ── Status indicator (show which keys are set) ──────
+        configured = [k for k, v in self.api_keys.items() if v]
+        if configured:
+            Label(btn_frame, text=f"Configured: {', '.join(configured)}",
+                  bg=Theme.BG, fg=Theme.FG_MUTED,
+                  font=(Theme.FONT_FAMILY_UI, 8)).pack(side=LEFT, padx=(12, 0))
 
     # ─── Button Handlers ───────────────────────────────────────
 
