@@ -165,7 +165,7 @@ class RepToolApp:
         self.analyze_btn = Button(
             row1, text="ANALYZE",
             bg=Theme.FG_ACCENT, fg=Theme.BG,
-            activebackground=Theme.FG_DIM, activefg=Theme.BG,
+            activebackground=Theme.FG_DIM, activeforeground=Theme.BG,
             font=(Theme.FONT_FAMILY_UI, 10, "bold"),
             relief="flat", bd=0, padx=20, pady=6,
             cursor="hand2",
@@ -176,7 +176,7 @@ class RepToolApp:
         self.report_btn = Button(
             row1, text="REPORT",
             bg=Theme.BG_BUTTON, fg=Theme.FG,
-            activebackground=Theme.BG_BUTTON_HOVER, activefg=Theme.FG_ACCENT,
+            activebackground=Theme.BG_BUTTON_HOVER, activeforeground=Theme.FG_ACCENT,
             font=(Theme.FONT_FAMILY_UI, 10),
             relief="flat", bd=0, padx=14, pady=6,
             cursor="hand2",
@@ -189,7 +189,7 @@ class RepToolApp:
         self.clear_btn = Button(
             row1, text="CLEAR",
             bg=Theme.BG_BUTTON, fg=Theme.FG_DIM,
-            activebackground=Theme.BG_BUTTON_HOVER, activefg=Theme.FG,
+            activebackground=Theme.BG_BUTTON_HOVER, activeforeground=Theme.FG,
             font=(Theme.FONT_FAMILY_UI, 10),
             relief="flat", bd=0, padx=14, pady=6,
             cursor="hand2",
