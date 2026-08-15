@@ -268,15 +268,50 @@ MIT License — Free for SOC teams, threat researchers, and security analysts.
 
 ---
 
-## 🤝 Contributing
+## 🗺️ Roadmap — Future Improvements
 
-Contributions welcome! Areas for improvement:
-- Additional OSINT sources (GreyNoise, Censys, PassiveTotal)
-- STIX/TAXII output format
-- MISP integration for IOC sharing
-- Web UI dashboard
-- YARA rule generation
+### Tier 1 — High Impact
+
+| # | Feature | Description | Why |
+|---|---------|-------------|-----|
+| 1 | **MISP / OpenCTI Integration** | Push IOCs directly to MISP or OpenCTI after analysis. Auto-create events with risk score and detection rules. Pull existing IOCs for correlation. | SOC teams already use MISP — makes ThreatLens part of their workflow |
+| 2 | **Real-Time Monitoring / Watchlist** | Add IPs/domains to a persistent watchlist. Periodic re-scan with configurable interval. Alert when risk score changes. Desktop notification on threshold breach. | Turns ThreatLens from one-shot investigation into continuous monitoring |
+| 3 | **Historical Database (SQLite)** | Store every analysis result locally. Track risk score changes over time. Query: "show me all CRITICAL IPs from last 30 days." Export to CSV/JSON. | Analysts need to see trends, not just snapshots |
+| 4 | **VirusTotal Behavior Tab** | Pull sandbox behavior reports (not just detections). Show communicating files, contacted URLs, dropped files. Map behavior to MITRE ATT&CK techniques. | Behavior analysis separates L1 triage from L3 investigation |
+
+### Tier 2 — Medium Impact
+
+| # | Feature | Description | Why |
+|---|---------|-------------|-----|
+| 5 | **GreyNoise Integration** | Check if IP is "noise" (internet background scanning) vs. targeted attack. | Reduces false positives significantly |
+| 6 | **Screenshot Capture** | Take screenshots of suspicious domains via headless browser. Attach to DOCX reports. | Visual evidence is powerful in incident reports |
+| 7 | **YARA Rule Generation** | Auto-generate YARA rules from malware associations. Map OTX/ThreatFox malware names to patterns. | Analysts can deploy YARA rules to EDR immediately |
+| 8 | **STIX 2.1 Output** | Export findings as STIX 2.1 bundle (.json). Compatible with TAXII servers. | Standard format for threat intel sharing between orgs |
+| 9 | **Email / Slack Notification** | Send alert when analysis finds CRITICAL/HIGH. Configurable webhook (Slack, Teams, Discord). | SOC teams need push notifications, not just reports |
+
+### Tier 3 — Nice to Have
+
+| # | Feature | Description | Why |
+|---|---------|-------------|-----|
+| 10 | **Censys Integration** | Internet-wide scan data (open services, certificates). | Better port/service discovery than Shodan alone |
+| 11 | **PassiveTotal (RiskIQ)** | WHOIS history, passive DNS, SSL certificate chains. Infrastructure pivoting. | Find related domains by shared certificates |
+| 12 | **Web Dashboard** | Flask/FastAPI browser-based UI for team collaboration. Shared analysis queue. Role-based access. | Multi-analyst SOC environments |
+| 13 | **Sigma Rule Auto-Tuning** | Adjust detection rule specificity based on risk score. Auto-import into Splunk/Elastic via API. | CRITICAL = block, HIGH = alert, MEDIUM = log |
+| 14 | **Hash Analysis** | Accept file hashes (MD5, SHA1, SHA256) as targets. Query VT, MalwareBazaar, Hybrid Analysis. | Expand from network IOCs to host IOCs |
+| 15 | **API Server Mode** | Run ThreatLens as a REST API (FastAPI). SIEM calls it for automated enrichment. Rate limiting + API key auth. | Enables automated playbook integration (XSOAR, Tines) |
+
+**Recommended next step:** #3 (Historical Database) + #2 (Watchlist Monitoring) — these two together turn ThreatLens from a one-shot investigation tool into a persistent SOC monitoring platform.
 
 ---
 
-*Built for security analysts and threat researchers. Tested on WSL (Ubuntu) and Linux.*
+## 🤝 Contributing
+
+Contributions welcome! Pick any item from the roadmap above, or:
+- Report bugs and feature requests via GitHub Issues
+- Submit PRs for new OSINT source integrations
+- Improve risk scoring logic or add new signal types
+- Add tests and documentation
+
+---
+
+*Built for security analysts and threat researchers. Tested on WSL (Ubuntu) and Windows.*
