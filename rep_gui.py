@@ -730,6 +730,25 @@ class RepToolApp:
 
         text_widget.bind("<KeyRelease>", _update_count)
 
+        # Options checkboxes (mirror main window options)
+        opt_frame = Frame(body, bg=Theme.BG)
+        opt_frame.pack(fill=X, pady=(8, 4))
+
+        bulk_skip_ports = BooleanVar(value=self.skip_ports_var.get())
+        bulk_skip_tor = BooleanVar(value=self.skip_tor_var.get())
+        bulk_json = BooleanVar(value=self.json_var.get())
+
+        for var, text in [(bulk_skip_ports, "Skip Port Scan"),
+                          (bulk_skip_tor, "Skip TOR Check"),
+                          (bulk_json, "JSON Output")]:
+            Checkbutton(opt_frame, text=text, variable=var,
+                       bg=Theme.BG, fg=Theme.FG_DIM,
+                       selectcolor=Theme.BG_INPUT,
+                       activebackground=Theme.BG,
+                       activeforeground=Theme.FG,
+                       font=(Theme.FONT_FAMILY_UI, 9),
+                       relief="flat", cursor="hand2").pack(side=LEFT, padx=(0, 12))
+
         btn_frame = Frame(dialog, bg=Theme.BG, padx=16, pady=10)
         btn_frame.pack(fill=X, side="bottom")
         Frame(dialog, bg=Theme.BORDER, height=1).pack(fill=X, side="bottom")
@@ -739,6 +758,10 @@ class RepToolApp:
             targets = [l.strip() for l in content.splitlines() if l.strip()]
             if not targets:
                 return
+            # Apply bulk dialog options to main checkboxes
+            self.skip_ports_var.set(bulk_skip_ports.get())
+            self.skip_tor_var.set(bulk_skip_tor.get())
+            self.json_var.set(bulk_json.get())
             dialog.destroy()
             self._start_bulk_analysis(targets)
 
