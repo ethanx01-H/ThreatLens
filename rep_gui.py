@@ -646,7 +646,6 @@ class RepToolApp:
         dialog.configure(bg=Theme.BG)
         dialog.resizable(False, False)
         dialog.transient(self.root)
-        dialog.grab_set()
 
         # Dark title bar
         try:
@@ -701,45 +700,66 @@ class RepToolApp:
         btn_frame.pack(fill=X, side="bottom")
         Frame(dialog, bg=Theme.BORDER, height=1).pack(fill=X, side="bottom")
 
-        def _on_start():
+        def _on_ok():
             content = text_widget.get("1.0", END).strip()
             targets = [l.strip() for l in content.splitlines() if l.strip()]
             if not targets:
                 return
             dialog.destroy()
+            self._start_bulk_analysis(targets)
 
-            # Clear output area
-            self.output_text.configure(state=NORMAL)
-            self.output_text.delete("1.0", END)
-            self.output_text.configure(state=DISABLED)
+        def _on_cancel():
+            dialog.destroy()
 
-            # Set UI state
-            self.running = True
-            self.stop_event.clear()
-            self.stop_btn.pack(side=RIGHT, padx=(0, 4))
-            self.analyze_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
-            self.report_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
-            self.bulk_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
-            self.subs_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
-            self.progress.start(10)
-
-            # Reset accumulator and start
-            self.all_results = []
-            self._bulk_targets = targets
-            self._bulk_index = 0
-            self._writeln(f"  BULK ANALYSIS: {len(targets)} target(s)\n", "accent")
-            self._run_next_bulk()
-
-        Button(btn_frame, text="START ANALYSIS", bg=Theme.FG_ACCENT, fg=Theme.BG,
+        # OK button (primary action)
+        ok_btn = Button(btn_frame, text="OK",
+               bg=Theme.FG_ACCENT, fg=Theme.BG,
                activebackground=Theme.FG_DIM, activeforeground=Theme.BG,
                font=(Theme.FONT_FAMILY_UI, 10, "bold"), relief="flat",
-               padx=20, pady=6, cursor="hand2", command=_on_start).pack(side=RIGHT)
+               padx=24, pady=6, cursor="hand2", command=_on_ok)
+        ok_btn.pack(side=RIGHT)
 
-        Button(btn_frame, text="CANCEL", bg=Theme.BG_BUTTON, fg=Theme.FG,
+        # Cancel button
+        cancel_btn = Button(btn_frame, text="CANCEL",
+               bg=Theme.BG_BUTTON, fg=Theme.FG,
                activebackground=Theme.BG_BUTTON_HOVER, activeforeground=Theme.FG,
                font=(Theme.FONT_FAMILY_UI, 10), relief="flat",
-               padx=16, pady=6, cursor="hand2", command=dialog.destroy,
-               highlightthickness=1, highlightbackground=Theme.BORDER).pack(side=RIGHT, padx=(0, 8))
+               padx=16, pady=6, cursor="hand2", command=_on_cancel,
+               highlightthickness=1, highlightbackground=Theme.BORDER)
+        cancel_btn.pack(side=RIGHT, padx=(0, 8))
+
+        # Bind Enter key to OK
+        dialog.bind("<Return>", lambda e: _on_ok())
+        # Bind Escape key to Cancel
+        dialog.bind("<Escape>", lambda e: _on_cancel())
+
+        # Focus the text widget
+        text_widget.focus_set()
+
+    def _start_bulk_analysis(self, targets):
+        """Set up UI and start bulk analysis."""
+        # Clear output area
+        self.output_text.configure(state=NORMAL)
+        self.output_text.delete("1.0", END)
+        self.output_text.configure(state=DISABLED)
+
+        # Set UI state
+        self.running = True
+        self.stop_event.clear()
+        self.stop_btn.pack(side=RIGHT, padx=(0, 4))
+        self.analyze_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
+        self.report_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
+        self.bulk_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
+        self.subs_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
+        self.progress.start(10)
+
+        # Reset accumulator and start
+        self.all_results = []
+        self._bulk_targets = targets
+        self._bulk_index = 0
+        self._writeln(f"  BULK ANALYSIS: {len(targets)} target(s)\n", "accent")
+        self.status_var.set(f"Starting bulk analysis of {len(targets)} target(s)...")
+        self._run_next_bulk()
 
     def _run_next_bulk(self):
         if self.stop_event.is_set():
