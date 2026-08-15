@@ -1029,10 +1029,11 @@ class RepToolApp:
         if self.running:
             return
 
-        # Clear output
+        # Clear output and reset results
         self.output_text.configure(state=NORMAL)
         self.output_text.delete("1.0", END)
         self.output_text.configure(state=DISABLED)
+        self.all_results = []  # clear previous bulk results
 
         self.running = True
         self.stop_event.clear()
