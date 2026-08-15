@@ -9,18 +9,15 @@ import json
 import time
 import requests
 from typing import Dict, List, Optional, Any
-from config import (
-    OTX_BASE, OTX_KEY, IPINFO_BASE, IPINFO_KEY,
-    ABUSEIPDB_BASE, ABUSEIPDB_KEY, VIRUSTOTAL_BASE, VIRUSTOTAL_KEY,
-    SHODAN_BASE, SHODAN_KEY, THREATFOX_BASE, URLHAUS_BASE,
-    MALWAREBAZAAR_BASE, HTTP_TIMEOUT, MAX_RETRIES,
-)
+import config as cfg
+# NOTE: Keys are read from cfg at CALL TIME (not import time)
+# so GUI hot-reload works without restarting.
 
 
 def _get(url: str, headers: dict = None, params: dict = None,
-         timeout: int = HTTP_TIMEOUT) -> Optional[dict]:
+         timeout: int = cfg.HTTP_TIMEOUT) -> Optional[dict]:
     """HTTP GET with retry logic."""
-    for attempt in range(MAX_RETRIES + 1):
+    for attempt in range(cfg.MAX_RETRIES + 1):
         try:
             resp = requests.get(url, headers=headers, params=params,
                                 timeout=timeout)
@@ -32,7 +29,7 @@ def _get(url: str, headers: dict = None, params: dict = None,
             else:
                 return None
         except (requests.RequestException, json.JSONDecodeError):
-            if attempt < MAX_RETRIES:
+            if attempt < cfg.MAX_RETRIES:
                 time.sleep(1)
             else:
                 return None
@@ -40,9 +37,9 @@ def _get(url: str, headers: dict = None, params: dict = None,
 
 
 def _post(url: str, data: dict = None, json_body: dict = None,
-          headers: dict = None, timeout: int = HTTP_TIMEOUT) -> Optional[dict]:
+          headers: dict = None, timeout: int = cfg.HTTP_TIMEOUT) -> Optional[dict]:
     """HTTP POST with retry logic."""
-    for attempt in range(MAX_RETRIES + 1):
+    for attempt in range(cfg.MAX_RETRIES + 1):
         try:
             resp = requests.post(url, data=data, json=json_body,
                                  headers=headers, timeout=timeout)
@@ -54,7 +51,7 @@ def _post(url: str, data: dict = None, json_body: dict = None,
             else:
                 return None
         except (requests.RequestException, json.JSONDecodeError):
-            if attempt < MAX_RETRIES:
+            if attempt < cfg.MAX_RETRIES:
                 time.sleep(1)
             else:
                 return None
@@ -85,10 +82,10 @@ def query_ipinfo(ip: str) -> Dict[str, Any]:
     }
 
     headers = {}
-    if IPINFO_KEY:
-        headers["Authorization"] = f"Bearer {IPINFO_KEY}"
+    if cfg.IPINFO_KEY:
+        headers["Authorization"] = f"Bearer {cfg.IPINFO_KEY}"
 
-    url = f"{IPINFO_BASE}/{ip}/json"
+    url = f"{cfg.IPINFO_BASE}/{ip}/json"
     data = _get(url, headers=headers)
 
     if not data:
@@ -155,11 +152,11 @@ def query_otx_ip(ip: str) -> Dict[str, Any]:
     }
 
     headers = {}
-    if OTX_KEY:
-        headers["X-OTX-API-KEY"] = OTX_KEY
+    if cfg.OTX_KEY:
+        headers["X-OTX-API-KEY"] = cfg.OTX_KEY
 
     # --- General info + pulses ---
-    general = _get(f"{OTX_BASE}/indicators/IPv4/{ip}/general", headers=headers)
+    general = _get(f"{cfg.OTX_BASE}/indicators/IPv4/{ip}/general", headers=headers)
     if general:
         pi = general.get("pulse_info", {})
         result["pulse_count"] = pi.get("count", 0)
@@ -181,7 +178,7 @@ def query_otx_ip(ip: str) -> Dict[str, Any]:
         result["error"] = "Failed to query OTX"
 
     # --- Malware samples ---
-    malware = _get(f"{OTX_BASE}/indicators/IPv4/{ip}/malware", headers=headers)
+    malware = _get(f"{cfg.OTX_BASE}/indicators/IPv4/{ip}/malware", headers=headers)
     if malware:
         result["malware_count"] = malware.get("count", 0)
         for m in malware.get("data", [])[:10]:
@@ -194,7 +191,7 @@ def query_otx_ip(ip: str) -> Dict[str, Any]:
             })
 
     # --- Malicious URLs ---
-    urls = _get(f"{OTX_BASE}/indicators/IPv4/{ip}/url_list", headers=headers)
+    urls = _get(f"{cfg.OTX_BASE}/indicators/IPv4/{ip}/url_list", headers=headers)
     if urls:
         result["url_count"] = urls.get("count", 0)
         for u in urls.get("url_list", [])[:10]:
@@ -223,10 +220,10 @@ def query_otx_domain(domain: str) -> Dict[str, Any]:
     }
 
     headers = {}
-    if OTX_KEY:
-        headers["X-OTX-API-KEY"] = OTX_KEY
+    if cfg.OTX_KEY:
+        headers["X-OTX-API-KEY"] = cfg.OTX_KEY
 
-    general = _get(f"{OTX_BASE}/indicators/domain/{domain}/general", headers=headers)
+    general = _get(f"{cfg.OTX_BASE}/indicators/domain/{domain}/general", headers=headers)
     if general:
         pi = general.get("pulse_info", {})
         result["pulse_count"] = pi.get("count", 0)
@@ -241,7 +238,7 @@ def query_otx_domain(domain: str) -> Dict[str, Any]:
     else:
         result["error"] = "Failed to query OTX for domain"
 
-    malware = _get(f"{OTX_BASE}/indicators/domain/{domain}/malware", headers=headers)
+    malware = _get(f"{cfg.OTX_BASE}/indicators/domain/{domain}/malware", headers=headers)
     if malware:
         result["malware_count"] = malware.get("count", 0)
         for m in malware.get("data", [])[:10]:
@@ -252,7 +249,7 @@ def query_otx_domain(domain: str) -> Dict[str, Any]:
                 "date": m.get("created", "")[:10],
             })
 
-    urls = _get(f"{OTX_BASE}/indicators/domain/{domain}/url_list", headers=headers)
+    urls = _get(f"{cfg.OTX_BASE}/indicators/domain/{domain}/url_list", headers=headers)
     if urls:
         result["url_count"] = urls.get("count", 0)
         for u in urls.get("url_list", [])[:10]:
@@ -286,12 +283,12 @@ def query_abuseipdb(ip: str) -> Dict[str, Any]:
         "error": None,
     }
 
-    if not ABUSEIPDB_KEY:
+    if not cfg.ABUSEIPDB_KEY:
         result["error"] = "No AbuseIPDB API key configured"
         return result
 
     headers = {
-        "Key": ABUSEIPDB_KEY,
+        "Key": cfg.ABUSEIPDB_KEY,
         "Accept": "application/json",
     }
     params = {
@@ -300,7 +297,7 @@ def query_abuseipdb(ip: str) -> Dict[str, Any]:
         "verbose": "",
     }
 
-    data = _get(f"{ABUSEIPDB_BASE}/check", headers=headers, params=params)
+    data = _get(f"{cfg.ABUSEIPDB_BASE}/check", headers=headers, params=params)
     if data and "data" in data:
         d = data["data"]
         result["abuse_confidence_score"] = d.get("abuseConfidenceScore", 0)
@@ -345,12 +342,12 @@ def query_virustotal_ip(ip: str) -> Dict[str, Any]:
         "error": None,
     }
 
-    if not VIRUSTOTAL_KEY:
+    if not cfg.VIRUSTOTAL_KEY:
         result["error"] = "No VirusTotal API key configured"
         return result
 
-    headers = {"x-apikey": VIRUSTOTAL_KEY}
-    data = _get(f"{VIRUSTOTAL_BASE}/ip_addresses/{ip}", headers=headers)
+    headers = {"x-apikey": cfg.VIRUSTOTAL_KEY}
+    data = _get(f"{cfg.VIRUSTOTAL_BASE}/ip_addresses/{ip}", headers=headers)
 
     if data and "data" in data:
         attrs = data["data"].get("attributes", {})
@@ -394,12 +391,12 @@ def query_virustotal_domain(domain: str) -> Dict[str, Any]:
         "error": None,
     }
 
-    if not VIRUSTOTAL_KEY:
+    if not cfg.VIRUSTOTAL_KEY:
         result["error"] = "No VirusTotal API key configured"
         return result
 
-    headers = {"x-apikey": VIRUSTOTAL_KEY}
-    data = _get(f"{VIRUSTOTAL_BASE}/domains/{domain}", headers=headers)
+    headers = {"x-apikey": cfg.VIRUSTOTAL_KEY}
+    data = _get(f"{cfg.VIRUSTOTAL_BASE}/domains/{domain}", headers=headers)
 
     if data and "data" in data:
         attrs = data["data"].get("attributes", {})
@@ -445,12 +442,12 @@ def query_shodan(ip: str) -> Dict[str, Any]:
         "error": None,
     }
 
-    if not SHODAN_KEY:
+    if not cfg.SHODAN_KEY:
         result["error"] = "No Shodan API key configured"
         return result
 
-    params = {"key": SHODAN_KEY}
-    data = _get(f"{SHODAN_BASE}/shodan/host/{ip}", params=params)
+    params = {"key": cfg.SHODAN_KEY}
+    data = _get(f"{cfg.SHODAN_BASE}/shodan/host/{ip}", params=params)
 
     if data:
         result["ports"] = data.get("ports", [])
@@ -494,7 +491,7 @@ def query_threatfox(indicator: str, ioc_type: str = "ip:port") -> Dict[str, Any]
     }
 
     payload = {"query": "search_ioc", "search_term": indicator}
-    data = _post(THREATFOX_BASE, json_body=payload)
+    data = _post(cfg.THREATFOX_BASE, json_body=payload)
 
     if data and data.get("query_status") == "ok":
         for ioc in data.get("data", [])[:15]:
@@ -540,7 +537,7 @@ def query_urlhaus_host(host: str) -> Dict[str, Any]:
         "error": None,
     }
 
-    data = _post(URLHAUS_BASE + "/host/", data={"host": host})
+    data = _post(cfg.URLHAUS_BASE + "/host/", data={"host": host})
 
     if data:
         result["is_listed"] = data.get("query_status") == "ok"
@@ -575,7 +572,7 @@ def check_tor_exit(ip: str) -> bool:
     try:
         resp = requests.get(
             "https://check.torproject.org/torbulkexitlist",
-            timeout=HTTP_TIMEOUT,
+            timeout=cfg.HTTP_TIMEOUT,
         )
         if resp.status_code == 200:
             exit_ips = set(resp.text.strip().splitlines())
@@ -590,7 +587,7 @@ def get_tor_exit_list() -> set:
     try:
         resp = requests.get(
             "https://check.torproject.org/torbulkexitlist",
-            timeout=HTTP_TIMEOUT,
+            timeout=cfg.HTTP_TIMEOUT,
         )
         if resp.status_code == 200:
             return set(resp.text.strip().splitlines())

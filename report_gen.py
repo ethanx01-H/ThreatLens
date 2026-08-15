@@ -637,6 +637,42 @@ tags:
     _add_styled_paragraph(doc, "Splunk Query:", bold=True, size=Pt(11))
     _add_styled_paragraph(doc, splunk_rule, size=Pt(8), color=RGBColor(0x33, 0x33, 0x33))
 
+    doc.add_paragraph()
+
+    # Elastic SIEM EQL rule
+    import json as _json
+    if target_type == "ip":
+        eql_rule = 'network where destination.ip == "' + target + '" or source.ip == "' + target + '"'
+        kql_filter = 'source.ip: "' + target + '" OR destination.ip: "' + target + '"'
+    else:
+        eql_rule = 'network where dns.question.name == "' + target + '" or destination.domain == "' + target + '"'
+        kql_filter = 'dns.question.name: "' + target + '" OR destination.domain: "' + target + '"'
+
+    _add_styled_paragraph(doc, "Elastic SIEM (EQL Rule):", bold=True, size=Pt(11))
+    _add_styled_paragraph(doc, eql_rule, size=Pt(8), color=RGBColor(0x33, 0x33, 0x33))
+
+    doc.add_paragraph()
+    _add_styled_paragraph(doc, "Elastic SIEM (KQL Filter):", bold=True, size=Pt(11))
+    _add_styled_paragraph(doc, kql_filter, size=Pt(8), color=RGBColor(0x33, 0x33, 0x33))
+
+    doc.add_paragraph()
+    elastic_obj = {
+        "name": "Traffic to/from " + target,
+        "description": "Detects connections to investigated indicator " + target,
+        "risk_score": risk_assessment.get("score", 0),
+        "severity": risk_assessment.get("classification", "low").lower(),
+        "type": "eql",
+        "query": eql_rule,
+        "interval": "5m",
+        "from": "now-3600s",
+        "enabled": True,
+        "tags": ["threat-intel", "soc", "custom"],
+        "threat": [{"framework": "MITRE ATT&CK", "tactic": {"id": "TA0011", "name": "Command and Control"}}]
+    }
+    _add_styled_paragraph(doc, "Elastic SIEM (JSON Rule Import):", bold=True, size=Pt(11))
+    _add_styled_paragraph(doc, "POST /api/detection_engine/rules", size=Pt(8), color=RGBColor(0x33, 0x33, 0x33))
+    _add_styled_paragraph(doc, _json.dumps(elastic_obj, indent=2), size=Pt(7), color=RGBColor(0x33, 0x33, 0x33))
+
     doc.add_page_break()
 
     # ─── 9. Appendix ───────────────────────────────────────────
@@ -1020,7 +1056,45 @@ def generate_txt_report(
     ln(f"  | sort -count")
     ln()
 
-    # ─── 11. Appendix ──────────────────────────────────────────
+    ln("  Elastic SIEM (EQL):")
+    ln(f"  // Kibana Security > Rules > Create Custom Rule")
+    ln(f"  // Rule type: EQL")
+    if target_type == "ip":
+        ln(f"  network where destination.ip == \"{target}\" or source.ip == \"{target}\"")
+    else:
+        ln(f"  network where dns.question.name == \"{target}\"")
+        ln(f"    or destination.domain == \"{target}\"")
+    ln()
+    ln("  Elastic SIEM (KQL filter for Detection Rule):")
+    if target_type == "ip":
+        ln(f"  source.ip: \"{target}\" OR destination.ip: \"{target}\"")
+    else:
+        ln(f"  dns.question.name: \"{target}\" OR destination.domain: \"{target}\"")
+    ln()
+    ln("  Elastic SIEM (JSON Rule Import — Kibana API):")
+    ln(f'  POST /api/detection_engine/rules')
+    ln(f'  {{')
+    ln(f'    "name": "Traffic to/from {target}",')
+    ln(f'    "description": "Detects connections to investigated indicator {target}",')
+    ln(f'    "risk_score": {risk.get("score", 0)},')
+    ln(f'    "severity": "{classification.lower()}",')
+    if target_type == "ip":
+        ln(f'    "type": "eql",')
+        ln(f'    "query": "network where destination.ip == \\\"{target}\\\" or source.ip == \\\"{target}\\\"",')
+    else:
+        ln(f'    "type": "eql",')
+        ln(f'    "query": "network where dns.question.name == \\\"{target}\\\" or destination.domain == \\\"{target}\\\"",')
+    ln(f'    "risk_score_mapping": [],')
+    ln(f'    "severity_mapping": [],')
+    ln(f'    "interval": "5m",')
+    ln(f'    "from": "now-3600s",')
+    ln(f'    "enabled": true,')
+    ln(f'    "tags": ["threat-intel", "soc", "custom"],')
+    ln(f'    "threat": [{{"framework": "MITRE ATT&CK", "tactic": {{"id": "TA0011", "name": "Command and Control"}}}}]')
+    ln(f'  }}')
+    ln()
+
+    # --- 11. Appendix ---
     sec("11. APPENDIX — OSINT SOURCES")
     sources = [
         ("AlienVault OTX", f"https://otx.alienvault.com/indicator/ip/{target}"),
