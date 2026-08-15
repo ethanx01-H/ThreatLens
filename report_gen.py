@@ -1,0 +1,647 @@
+"""
+Professional DOCX Report Generator
+Generates management-level threat intelligence investigation reports
+with color-coded tables, KPI dashboards, and actionable recommendations.
+"""
+
+import os
+from datetime import datetime
+from typing import Dict, List, Any, Optional
+
+try:
+    from docx import Document
+    from docx.shared import Pt, Cm, RGBColor, Inches
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+    HAS_DOCX = True
+except ImportError:
+    HAS_DOCX = False
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Styling Helpers
+# ═══════════════════════════════════════════════════════════════════
+
+def _set_cell_shading(cell, color_hex):
+    """Apply background color to a table cell."""
+    shading = OxmlElement('w:shd')
+    shading.set(qn('w:fill'), color_hex)
+    shading.set(qn('w:val'), 'clear')
+    cell._tc.get_or_add_tcPr().append(shading)
+
+
+def _ct(cell, text, bold=False, size=Pt(9), color=None, align=None):
+    """Write styled text to a table cell."""
+    cell.text = str(text)
+    for p in cell.paragraphs:
+        if align:
+            p.alignment = align
+        for r in p.runs:
+            r.font.size = size
+            r.bold = bold
+            r.font.name = "Calibri"
+            if color:
+                r.font.color.rgb = color
+
+
+def _add_styled_paragraph(doc, text, style=None, bold=False, size=Pt(11),
+                          color=None, alignment=None, space_after=Pt(6)):
+    """Add a styled paragraph to the document."""
+    p = doc.add_paragraph()
+    if style:
+        p.style = style
+    if alignment:
+        p.alignment = alignment
+    p.paragraph_format.space_after = space_after
+    run = p.add_run(text)
+    run.font.size = size
+    run.font.name = "Calibri"
+    run.bold = bold
+    if color:
+        run.font.color.rgb = color
+    return p
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Risk Color Map
+# ═══════════════════════════════════════════════════════════════════
+
+SEV_COLORS = {
+    "CRITICAL": ("E74C3C", True),   # Red bg, white text
+    "HIGH":     ("E67E22", True),   # Orange bg, white text
+    "MEDIUM":   ("F1C40F", False),  # Yellow bg, dark text
+    "LOW":      ("27AE60", True),   # Green bg, white text
+    "INFO":     ("3498DB", True),   # Blue bg, white text
+}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Report Generator
+# ═══════════════════════════════════════════════════════════════════
+
+def generate_report(
+    target: str,
+    target_type: str,  # "ip" or "domain"
+    risk_assessment: dict,
+    ipinfo: dict = None,
+    otx: dict = None,
+    abuseipdb: dict = None,
+    vt: dict = None,
+    shodan: dict = None,
+    threatfox: dict = None,
+    urlhaus: dict = None,
+    recon: dict = None,
+    output_path: str = None,
+    analyst: str = "SOC L3 Analyst",
+    classification: str = "CONFIDENTIAL",
+) -> str:
+    """Generate a professional DOCX threat intelligence report."""
+
+    if not HAS_DOCX:
+        raise ImportError("python-docx not installed. Run: pip install python-docx")
+
+    doc = Document()
+
+    # Page margins
+    for section in doc.sections:
+        section.top_margin = Cm(2)
+        section.bottom_margin = Cm(2)
+        section.left_margin = Cm(2.5)
+        section.right_margin = Cm(2.5)
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    report_id = f"TI-{datetime.now().strftime('%Y%m%d')}-{target.replace('.', '-').replace(':', '-')}"
+
+    # ─── Cover Page ────────────────────────────────────────────
+    for _ in range(4):
+        doc.add_paragraph()
+
+    _add_styled_paragraph(doc, "THREAT INTELLIGENCE REPORT",
+                          bold=True, size=Pt(28), color=RGBColor(0, 0x33, 0x66),
+                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
+
+    _add_styled_paragraph(doc, f"IP/Domain Reputation Analysis",
+                          size=Pt(16), color=RGBColor(0x66, 0x66, 0x66),
+                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
+
+    doc.add_paragraph()
+    _add_styled_paragraph(doc, f"Target: {target}",
+                          bold=True, size=Pt(14),
+                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
+
+    # Risk badge on cover
+    risk_cls = risk_assessment.get("classification", "LOW")
+    risk_score = risk_assessment.get("score", 0)
+    badge_color = {"CRITICAL": RGBColor(0xE7, 0x4C, 0x3C),
+                   "HIGH": RGBColor(0xE6, 0x7E, 0x22),
+                   "MEDIUM": RGBColor(0xF1, 0xC4, 0x0F),
+                   "LOW": RGBColor(0x27, 0xAE, 0x60)}.get(risk_cls, RGBColor(0, 0, 0))
+    _add_styled_paragraph(doc, f"Risk: {risk_cls} (Score: {risk_score}/100)",
+                          bold=True, size=Pt(16), color=badge_color,
+                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
+
+    for _ in range(3):
+        doc.add_paragraph()
+
+    # Metadata table
+    meta = [
+        ("Report ID", report_id),
+        ("Date", timestamp),
+        ("Prepared By", analyst),
+        ("Classification", classification),
+        ("Type", f"IP Address Analysis" if target_type == "ip" else "Domain Analysis"),
+        ("Version", "1.0"),
+    ]
+    meta_table = doc.add_table(rows=len(meta), cols=2, style='Light Shading Accent 1')
+    meta_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for i, (k, v) in enumerate(meta):
+        _ct(meta_table.rows[i].cells[0], k, bold=True, size=Pt(10))
+        _ct(meta_table.rows[i].cells[1], v, size=Pt(10))
+
+    doc.add_page_break()
+
+    # ─── Table of Contents placeholder ─────────────────────────
+    _add_styled_paragraph(doc, "Table of Contents", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+    toc_items = [
+        "1. Executive Summary",
+        "2. Risk Assessment Dashboard",
+        "3. Indicator Profile",
+        "4. Threat Intelligence Findings",
+        "5. Network Reconnaissance",
+        "6. Signal Analysis",
+        "7. IOC Table",
+        "8. Recommended Actions",
+        "9. Detection Rules",
+        "10. Appendix — Raw Data Sources",
+    ]
+    for item in toc_items:
+        _add_styled_paragraph(doc, item, size=Pt(11), space_after=Pt(3))
+
+    doc.add_page_break()
+
+    # ─── 1. Executive Summary ──────────────────────────────────
+    _add_styled_paragraph(doc, "1. Executive Summary", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+
+    # Build summary text
+    signals = risk_assessment.get("signals", [])
+    top_signals = signals[:3] if signals else []
+    signal_text = "; ".join(s.get("signal", "") for s in top_signals) if top_signals else "No significant threats detected"
+
+    summary_text = (
+        f"This report presents the threat intelligence analysis of {target_type} "
+        f"indicator \"{target}\". The investigation assessed multiple open-source "
+        f"intelligence (OSINT) feeds including AlienVault OTX, AbuseIPDB, VirusTotal, "
+        f"Shodan, ThreatFox, and URLhaus."
+    )
+    _add_styled_paragraph(doc, summary_text, size=Pt(11))
+
+    summary2 = (
+        f"Risk Assessment: The indicator received a composite risk score of "
+        f"{risk_score}/100, classified as {risk_cls}. "
+        f"Key findings: {signal_text}."
+    )
+    _add_styled_paragraph(doc, summary2, size=Pt(11), bold=True)
+
+    # Summary KPI table
+    kpi_data = [
+        ("Risk Score", f"{risk_score}/100"),
+        ("Classification", risk_cls),
+        ("Signals Detected", str(risk_assessment.get("signal_count", 0))),
+        ("OTX Pulses", str(otx.get("pulse_count", 0) if otx and not otx.get("error") else "N/A")),
+        ("VT Detections", f"{vt.get('malicious', 0)}/{vt.get('malicious', 0) + vt.get('harmless', 0) + vt.get('undetected', 0)}" if vt and not vt.get("error") else "N/A"),
+        ("Abuse Score", f"{abuseipdb.get('abuse_confidence_score', 0)}%" if abuseipdb and not abuseipdb.get("error") else "N/A"),
+    ]
+    kpi_table = doc.add_table(rows=len(kpi_data) + 1, cols=2, style='Light Shading Accent 1')
+    kpi_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _ct(kpi_table.rows[0].cells[0], "Metric", bold=True, size=Pt(10), color=RGBColor(255, 255, 255))
+    _ct(kpi_table.rows[0].cells[1], "Value", bold=True, size=Pt(10), color=RGBColor(255, 255, 255))
+    _set_cell_shading(kpi_table.rows[0].cells[0], "003366")
+    _set_cell_shading(kpi_table.rows[0].cells[1], "003366")
+    for i, (metric, value) in enumerate(kpi_data):
+        row = kpi_table.rows[i + 1]
+        _ct(row.cells[0], metric, bold=True, size=Pt(10))
+        _ct(row.cells[1], value, size=Pt(10))
+        # Color code the classification row
+        if metric == "Classification":
+            hex_color, white_text = SEV_COLORS.get(value, ("95A5A6", True))
+            _set_cell_shading(row.cells[1], hex_color)
+            txt_color = RGBColor(255, 255, 255) if white_text else RGBColor(0, 0, 0)
+            _ct(row.cells[1], value, bold=True, size=Pt(10), color=txt_color)
+
+    doc.add_page_break()
+
+    # ─── 2. Risk Assessment Dashboard ──────────────────────────
+    _add_styled_paragraph(doc, "2. Risk Assessment Dashboard", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+
+    # Signal summary table
+    if signals:
+        sig_table = doc.add_table(rows=len(signals) + 1, cols=4, style='Light Shading Accent 1')
+        sig_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        headers = ["#", "Source", "Signal", "Severity"]
+        for j, h in enumerate(headers):
+            _ct(sig_table.rows[0].cells[j], h, bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+            _set_cell_shading(sig_table.rows[0].cells[j], "003366")
+
+        for i, sig in enumerate(signals):
+            row = sig_table.rows[i + 1]
+            _ct(row.cells[0], str(i + 1), size=Pt(9))
+            _ct(row.cells[1], sig.get("source", ""), size=Pt(9))
+            _ct(row.cells[2], sig.get("signal", ""), size=Pt(8))
+            sev = sig.get("severity", "INFO")
+            hex_color, white_text = SEV_COLORS.get(sev, ("95A5A6", True))
+            _set_cell_shading(row.cells[3], hex_color)
+            txt_color = RGBColor(255, 255, 255) if white_text else RGBColor(0, 0, 0)
+            _ct(row.cells[3], sev, bold=True, size=Pt(9), color=txt_color)
+    else:
+        _add_styled_paragraph(doc, "No significant threat signals detected.", size=Pt(11))
+
+    doc.add_page_break()
+
+    # ─── 3. Indicator Profile ──────────────────────────────────
+    _add_styled_paragraph(doc, "3. Indicator Profile", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+
+    if target_type == "ip" and ipinfo and not ipinfo.get("error"):
+        profile_data = [
+            ("IP Address", target),
+            ("Hostname", ipinfo.get("hostname", "N/A")),
+            ("ASN", ipinfo.get("asn", "N/A")),
+            ("ISP/Organization", ipinfo.get("isp", "N/A")),
+            ("Country", ipinfo.get("country", "N/A")),
+            ("City/Region", f"{ipinfo.get('city', '')}, {ipinfo.get('region', '')}".strip(", ")),
+            ("Coordinates", ipinfo.get("loc", "N/A")),
+            ("Cloud Provider", ipinfo.get("cloud_provider", "N/A") if ipinfo.get("is_cloud") else "Not detected"),
+        ]
+    elif target_type == "domain" and recon:
+        dns = recon.get("dns", {})
+        whois_data = recon.get("whois", {})
+        profile_data = [
+            ("Domain", target),
+            ("A Records", ", ".join(dns.get("a_records", [])) or "N/A"),
+            ("AAAA Records", ", ".join(dns.get("aaaa_records", [])) or "N/A"),
+            ("MX Records", ", ".join(f"{m[0]} (pri {m[1]})" for m in dns.get("mx_records", [])) or "N/A"),
+            ("NS Records", ", ".join(dns.get("ns_records", [])) or "N/A"),
+            ("Registrar", whois_data.get("registrar", "N/A")),
+            ("Creation Date", whois_data.get("creation_date", "N/A")),
+            ("Expiration Date", whois_data.get("expiration_date", "N/A")),
+        ]
+    else:
+        profile_data = [("Target", target), ("Profile Data", "Limited data available")]
+
+    prof_table = doc.add_table(rows=len(profile_data), cols=2, style='Light Shading Accent 1')
+    prof_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for i, (k, v) in enumerate(profile_data):
+        _ct(prof_table.rows[i].cells[0], k, bold=True, size=Pt(10))
+        _ct(prof_table.rows[i].cells[1], str(v), size=Pt(10))
+
+    doc.add_paragraph()
+
+    # ─── 4. Threat Intelligence Findings ───────────────────────
+    _add_styled_paragraph(doc, "4. Threat Intelligence Findings", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+
+    # OTX findings
+    if otx and not otx.get("error"):
+        _add_styled_paragraph(doc, "4.1 AlienVault OTX", bold=True, size=Pt(13),
+                              color=RGBColor(0, 0x55, 0x99))
+        _add_styled_paragraph(doc, f"Pulse Count: {otx.get('pulse_count', 0)} | "
+                              f"Malware Samples: {otx.get('malware_count', 0)} | "
+                              f"Malicious URLs: {otx.get('url_count', 0)}", size=Pt(10))
+
+        if otx.get("pulses"):
+            pulse_table = doc.add_table(rows=min(len(otx["pulses"]), 10) + 1, cols=4, style='Light Shading Accent 1')
+            pulse_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+            for j, h in enumerate(["#", "Pulse Name", "Date", "Tags"]):
+                _ct(pulse_table.rows[0].cells[j], h, bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+                _set_cell_shading(pulse_table.rows[0].cells[j], "003366")
+            for i, p in enumerate(otx["pulses"][:10]):
+                row = pulse_table.rows[i + 1]
+                _ct(row.cells[0], str(i + 1), size=Pt(8))
+                _ct(row.cells[1], p.get("name", "")[:80], size=Pt(8))
+                _ct(row.cells[2], p.get("created", ""), size=Pt(8))
+                _ct(row.cells[3], ", ".join(p.get("tags", []))[:60], size=Pt(8))
+
+        if otx.get("malware_samples"):
+            doc.add_paragraph()
+            _add_styled_paragraph(doc, "Associated Malware:", bold=True, size=Pt(11))
+            for m in otx["malware_samples"][:5]:
+                _add_styled_paragraph(doc, f"  - {m.get('malware_name', 'Unknown')} "
+                                      f"(AV: {m.get('av_name', 'N/A')}, {m.get('date', '')})",
+                                      size=Pt(9))
+
+    # AbuseIPDB findings
+    if abuseipdb and not abuseipdb.get("error"):
+        _add_styled_paragraph(doc, "4.2 AbuseIPDB", bold=True, size=Pt(13),
+                              color=RGBColor(0, 0x55, 0x99))
+        ab_data = [
+            ("Abuse Confidence Score", f"{abuseipdb.get('abuse_confidence_score', 0)}%"),
+            ("Total Reports", str(abuseipdb.get("total_reports", 0))),
+            ("Distinct Reporters", str(abuseipdb.get("num_distinct_users", 0))),
+            ("Last Reported", abuseipdb.get("last_reported_at", "N/A") or "N/A"),
+            ("Usage Type", abuseipdb.get("usage_type", "N/A")),
+            ("ISP", abuseipdb.get("isp", "N/A")),
+        ]
+        ab_table = doc.add_table(rows=len(ab_data), cols=2, style='Light Shading Accent 1')
+        ab_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        for i, (k, v) in enumerate(ab_data):
+            _ct(ab_table.rows[i].cells[0], k, bold=True, size=Pt(9))
+            _ct(ab_table.rows[i].cells[1], str(v), size=Pt(9))
+
+    # VirusTotal findings
+    if vt and not vt.get("error"):
+        _add_styled_paragraph(doc, "4.3 VirusTotal", bold=True, size=Pt(13),
+                              color=RGBColor(0, 0x55, 0x99))
+        mal = vt.get("malicious", 0)
+        sus = vt.get("suspicious", 0)
+        clean = vt.get("harmless", 0)
+        und = vt.get("undetected", 0)
+        total = mal + sus + clean + und
+        vt_info = [
+            ("Detection Ratio", f"{mal}/{total} engines"),
+            ("Malicious", str(mal)),
+            ("Suspicious", str(sus)),
+            ("Clean", str(clean)),
+            ("Undetected", str(und)),
+            ("Reputation Score", str(vt.get("reputation", "N/A"))),
+        ]
+        vt_table = doc.add_table(rows=len(vt_info), cols=2, style='Light Shading Accent 1')
+        vt_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        for i, (k, v) in enumerate(vt_info):
+            _ct(vt_table.rows[i].cells[0], k, bold=True, size=Pt(9))
+            _ct(vt_table.rows[i].cells[1], str(v), size=Pt(9))
+            if k == "Detection Ratio" and mal > 0:
+                hex_c, wt = ("E74C3C", True) if mal >= 5 else ("E67E22", True) if mal >= 2 else ("F1C40F", False)
+                _set_cell_shading(vt_table.rows[i].cells[1], hex_c)
+                tc = RGBColor(255, 255, 255) if wt else RGBColor(0, 0, 0)
+                _ct(vt_table.rows[i].cells[1], str(v), bold=True, size=Pt(9), color=tc)
+
+    # Shodan findings
+    if shodan and not shodan.get("error"):
+        _add_styled_paragraph(doc, "4.4 Shodan", bold=True, size=Pt(13),
+                              color=RGBColor(0, 0x55, 0x99))
+        shodan_info = [
+            ("Open Ports", ", ".join(str(p) for p in shodan.get("ports", [])) or "None"),
+            ("OS", shodan.get("os", "N/A") or "N/A"),
+            ("Organization", shodan.get("org", "N/A")),
+            ("Known CVEs", str(len(shodan.get("vulns", [])))),
+        ]
+        if shodan.get("vulns"):
+            shodan_info.append(("CVE List", ", ".join(shodan["vulns"][:10])))
+        sh_table = doc.add_table(rows=len(shodan_info), cols=2, style='Light Shading Accent 1')
+        sh_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        for i, (k, v) in enumerate(shodan_info):
+            _ct(sh_table.rows[i].cells[0], k, bold=True, size=Pt(9))
+            _ct(sh_table.rows[i].cells[1], str(v), size=Pt(9))
+
+    # ThreatFox findings
+    if threatfox and not threatfox.get("error") and threatfox.get("ioc_count", 0) > 0:
+        _add_styled_paragraph(doc, "4.5 ThreatFox (abuse.ch)", bold=True, size=Pt(13),
+                              color=RGBColor(0, 0x55, 0x99))
+        _add_styled_paragraph(doc, f"IOC Associations: {threatfox.get('ioc_count', 0)}", size=Pt(10))
+        for ioc in threatfox.get("iocs", [])[:5]:
+            _add_styled_paragraph(doc, f"  - {ioc.get('malware', 'Unknown')} "
+                                  f"(Type: {ioc.get('threat_type', 'N/A')}, "
+                                  f"Confidence: {ioc.get('confidence', 0)}%)",
+                                  size=Pt(9))
+
+    # URLhaus findings
+    if urlhaus and not urlhaus.get("error") and urlhaus.get("is_listed"):
+        _add_styled_paragraph(doc, "4.6 URLhaus (abuse.ch)", bold=True, size=Pt(13),
+                              color=RGBColor(0, 0x55, 0x99))
+        _add_styled_paragraph(doc, f"LISTED — Threat: {urlhaus.get('threat', 'N/A')} | "
+                              f"URLs: {urlhaus.get('url_count', 0)} "
+                              f"(Online: {urlhaus.get('urls_online', 0)})",
+                              size=Pt(10), bold=True)
+
+    doc.add_page_break()
+
+    # ─── 5. Network Reconnaissance ─────────────────────────────
+    if recon:
+        _add_styled_paragraph(doc, "5. Network Reconnaissance", bold=True, size=Pt(16),
+                              color=RGBColor(0, 0x33, 0x66))
+
+        # Port scan results
+        port_scan = recon.get("port_scan", {})
+        if port_scan and not port_scan.get("error"):
+            _add_styled_paragraph(doc, "5.1 Port Scan Results", bold=True, size=Pt(13),
+                                  color=RGBColor(0, 0x55, 0x99))
+            open_ports = port_scan.get("open_ports", [])
+            _add_styled_paragraph(doc, f"Open Ports: {len(open_ports)} | "
+                                  f"Scan Time: {port_scan.get('scan_time', 0)}s",
+                                  size=Pt(10))
+
+            if open_ports:
+                from config import HIGH_RISK_PORTS
+                port_data = []
+                for p in open_ports:
+                    svc = HIGH_RISK_PORTS.get(p, "Unknown")
+                    banner = port_scan.get("service_banners", {}).get(p, "")
+                    risk = "HIGH" if p in HIGH_RISK_PORTS else "LOW"
+                    port_data.append((str(p), svc, banner[:60] or "N/A", risk))
+
+                port_table = doc.add_table(rows=len(port_data) + 1, cols=4, style='Light Shading Accent 1')
+                port_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+                for j, h in enumerate(["Port", "Service", "Banner", "Risk"]):
+                    _ct(port_table.rows[0].cells[j], h, bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+                    _set_cell_shading(port_table.rows[0].cells[j], "003366")
+                for i, (port, svc, banner, risk) in enumerate(port_data):
+                    row = port_table.rows[i + 1]
+                    _ct(row.cells[0], port, size=Pt(9))
+                    _ct(row.cells[1], svc, size=Pt(9))
+                    _ct(row.cells[2], banner, size=Pt(8))
+                    hex_c, wt = SEV_COLORS.get(risk, ("95A5A6", True))
+                    _set_cell_shading(row.cells[3], hex_c)
+                    tc = RGBColor(255, 255, 255) if wt else RGBColor(0, 0, 0)
+                    _ct(row.cells[3], risk, bold=True, size=Pt(9), color=tc)
+
+        # Reverse DNS
+        rdns = recon.get("reverse_dns", {})
+        if rdns:
+            _add_styled_paragraph(doc, "5.2 Reverse DNS", bold=True, size=Pt(13),
+                                  color=RGBColor(0, 0x55, 0x99))
+            hostnames = rdns.get("hostnames", [])
+            _add_styled_paragraph(doc, f"PTR Records: {', '.join(hostnames) if hostnames else 'None'}",
+                                  size=Pt(10))
+
+        # HTTP Probe
+        http = recon.get("http_probe")
+        if http and not http.get("error"):
+            _add_styled_paragraph(doc, "5.3 HTTP/HTTPS Probe", bold=True, size=Pt(13),
+                                  color=RGBColor(0, 0x55, 0x99))
+            http_info = [
+                ("HTTP Status", str(http.get("http_status", "N/A"))),
+                ("HTTPS Status", str(http.get("https_status", "N/A"))),
+                ("Server", http.get("server_header", "N/A") or "N/A"),
+                ("TLS Version", http.get("tls_version", "N/A") or "N/A"),
+            ]
+            http_table = doc.add_table(rows=len(http_info), cols=2, style='Light Shading Accent 1')
+            http_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+            for i, (k, v) in enumerate(http_info):
+                _ct(http_table.rows[i].cells[0], k, bold=True, size=Pt(9))
+                _ct(http_table.rows[i].cells[1], str(v), size=Pt(9))
+
+            # Security headers
+            sec = http.get("security_headers", {})
+            if sec:
+                doc.add_paragraph()
+                _add_styled_paragraph(doc, "Security Headers:", bold=True, size=Pt(10))
+                for hdr, val in sec.items():
+                    status = "PRESENT" if val != "MISSING" else "MISSING"
+                    color = "27AE60" if val != "MISSING" else "E74C3C"
+                    _add_styled_paragraph(doc, f"  {hdr}: {status}", size=Pt(9),
+                                          color=RGBColor(0x27, 0xAE, 0x60) if val != "MISSING" else RGBColor(0xE7, 0x4C, 0x3C))
+
+    doc.add_page_break()
+
+    # ─── 6. IOC Table ──────────────────────────────────────────
+    _add_styled_paragraph(doc, "6. IOC Table — Block/Monitor Actions", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+
+    ioc_entries = []
+    # Primary indicator
+    action = "BLOCK" if risk_cls in ("CRITICAL", "HIGH") else "MONITOR"
+    ioc_entries.append((target, target_type.upper(), risk_cls, action, "Primary indicator"))
+
+    # Related IOCs from OTX malware
+    if otx and otx.get("malware_samples"):
+        for m in otx["malware_samples"][:3]:
+            if m.get("hash"):
+                ioc_entries.append((m["hash"][:16] + "...", "HASH", "HIGH", "BLOCK",
+                                    f"Malware: {m.get('malware_name', 'Unknown')}"))
+
+    # Related IOCs from ThreatFox
+    if threatfox and threatfox.get("iocs"):
+        for ioc in threatfox["iocs"][:3]:
+            ioc_entries.append((ioc.get("ioc", "")[:40], ioc.get("ioc_type", ""),
+                                "HIGH", "BLOCK", f"Malware: {ioc.get('malware', '')}"))
+
+    if ioc_entries:
+        ioc_table = doc.add_table(rows=len(ioc_entries) + 1, cols=5, style='Light Shading Accent 1')
+        ioc_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        for j, h in enumerate(["Indicator", "Type", "Severity", "Action", "Notes"]):
+            _ct(ioc_table.rows[0].cells[j], h, bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+            _set_cell_shading(ioc_table.rows[0].cells[j], "003366")
+        for i, (ind, itype, sev, act, notes) in enumerate(ioc_entries):
+            row = ioc_table.rows[i + 1]
+            _ct(row.cells[0], ind, size=Pt(8))
+            _ct(row.cells[1], itype, size=Pt(8))
+            hex_c, wt = SEV_COLORS.get(sev, ("95A5A6", True))
+            _set_cell_shading(row.cells[2], hex_c)
+            tc = RGBColor(255, 255, 255) if wt else RGBColor(0, 0, 0)
+            _ct(row.cells[2], sev, bold=True, size=Pt(8), color=tc)
+            # Action coloring
+            act_color = "E74C3C" if act == "BLOCK" else "F39C12"
+            _set_cell_shading(row.cells[3], act_color)
+            _ct(row.cells[3], act, bold=True, size=Pt(8), color=RGBColor(255, 255, 255))
+            _ct(row.cells[4], notes, size=Pt(8))
+
+    doc.add_page_break()
+
+    # ─── 7. Recommended Actions ────────────────────────────────
+    _add_styled_paragraph(doc, "7. Recommended Actions", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+
+    actions = risk_assessment.get("recommended_actions", [])
+    if actions:
+        action_table = doc.add_table(rows=len(actions) + 1, cols=2, style='Light Shading Accent 1')
+        action_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        _ct(action_table.rows[0].cells[0], "#", bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+        _ct(action_table.rows[0].cells[1], "Action", bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+        _set_cell_shading(action_table.rows[0].cells[0], "003366")
+        _set_cell_shading(action_table.rows[0].cells[1], "003366")
+        for i, act in enumerate(actions):
+            row = action_table.rows[i + 1]
+            _ct(row.cells[0], str(i + 1), size=Pt(9))
+            _ct(row.cells[1], act, size=Pt(9))
+
+    doc.add_page_break()
+
+    # ─── 8. Detection Rules ────────────────────────────────────
+    _add_styled_paragraph(doc, "8. Detection Rules (Sigma)", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+
+    sigma_rule = f"""title: Traffic to/from {target}
+id: {report_id.lower().replace('-', '')}
+status: experimental
+description: Detects network traffic to/from investigated indicator {target}
+references:
+    - This threat intelligence report ({report_id})
+author: SOC L3 Tool
+date: {datetime.now().strftime('%Y/%m/%d')}
+logsource:
+    category: firewall
+detection:
+    selection:
+        DestinationIp|contains: '{target}' if target_type == 'ip' else ''
+        DestinationHostname|contains: '{target}' if target_type == 'domain' else ''
+    condition: selection
+falsepositives:
+    - Legitimate business traffic (review before blocking)
+level: {risk_cls.lower()}
+tags:
+    - attack.command_and_control
+    - attack.t1071"""
+
+    _add_styled_paragraph(doc, "Sigma Rule (Firewall):", bold=True, size=Pt(11))
+    _add_styled_paragraph(doc, sigma_rule, size=Pt(8), color=RGBColor(0x33, 0x33, 0x33))
+
+    splunk_rule = f"""index=* (dest_ip="{target}" OR src_ip="{target}" OR dest="{target}")
+| stats count by src_ip, dest_ip, dest, action, app
+| sort -count"""
+
+    _add_styled_paragraph(doc, "Splunk Query:", bold=True, size=Pt(11))
+    _add_styled_paragraph(doc, splunk_rule, size=Pt(8), color=RGBColor(0x33, 0x33, 0x33))
+
+    doc.add_page_break()
+
+    # ─── 9. Appendix ───────────────────────────────────────────
+    _add_styled_paragraph(doc, "9. Appendix — OSINT Sources", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+
+    sources = [
+        ("AlienVault OTX", "https://otx.alienvault.com/indicator/ip/" + target),
+        ("AbuseIPDB", f"https://www.abuseipdb.com/check/{target}"),
+        ("VirusTotal", f"https://www.virustotal.com/gui/ip-address/{target}" if target_type == "ip" else f"https://www.virustotal.com/gui/domain/{target}"),
+        ("Shodan", f"https://www.shodan.io/host/{target}" if target_type == "ip" else f"https://www.shodan.io/search?query=hostname:{target}"),
+        ("ThreatFox", "https://threatfox.abuse.ch/browse/"),
+        ("URLhaus", "https://urlhaus.abuse.ch/browse/"),
+        ("IPInfo", f"https://ipinfo.io/{target}"),
+    ]
+
+    src_table = doc.add_table(rows=len(sources) + 1, cols=2, style='Light Shading Accent 1')
+    src_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _ct(src_table.rows[0].cells[0], "Source", bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+    _ct(src_table.rows[0].cells[1], "URL", bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+    _set_cell_shading(src_table.rows[0].cells[0], "003366")
+    _set_cell_shading(src_table.rows[0].cells[1], "003366")
+    for i, (name, url) in enumerate(sources):
+        row = src_table.rows[i + 1]
+        _ct(row.cells[0], name, bold=True, size=Pt(9))
+        _ct(row.cells[1], url, size=Pt(8))
+
+    # ─── Footer ────────────────────────────────────────────────
+    doc.add_paragraph()
+    _add_styled_paragraph(doc, f"Report generated: {timestamp} | Classification: {classification}",
+                          size=Pt(8), color=RGBColor(0x99, 0x99, 0x99),
+                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
+    _add_styled_paragraph(doc, "This report was generated by the IP/Domain Reputation Tool v1.0 — SOC L3 Analyst",
+                          size=Pt(8), color=RGBColor(0x99, 0x99, 0x99),
+                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
+
+    # ─── Save ──────────────────────────────────────────────────
+    if not output_path:
+        safe_target = target.replace(":", "-").replace("/", "-").replace("\\", "-")
+        output_path = f"TI_Report_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+
+    try:
+        doc.save(output_path)
+    except PermissionError:
+        output_path = output_path.replace(".docx", "_v2.docx")
+        doc.save(output_path)
+
+    return output_path
