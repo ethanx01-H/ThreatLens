@@ -8,7 +8,40 @@ DOCX report generation.
 
 ---
 
-## ⚡ Quick Start
+## 🪟 Windows Executable
+
+A standalone `.exe` is available — no Python installation required on the target machine.
+
+### Download
+
+Download `IPDomain-Reputation-Tool.exe` from the [releases](https://github.com/ethanx01-H/IP-Domain-Reputation-Tool/releases) page, or build it yourself (see below).
+
+### Build from Source
+
+```cmd
+cd IP-Domain-Reputation-Tool
+build_windows.bat
+```
+
+The executable will be created in `dist/IPDomain-Reputation-Tool.exe` (~17 MB standalone).
+
+### Usage
+
+1. Double-click `IPDomain-Reputation-Tool.exe`
+2. Enter an IP address or domain in the input field
+3. Click **ANALYZE** or press Enter
+4. Click **REPORT** to generate a DOCX file
+
+To set API keys, create a `.env` file next to the `.exe`:
+```
+ABUSEIPDB_API_KEY=your_key
+VIRUSTOTAL_API_KEY=your_key
+SHODAN_API_KEY=your_key
+```
+
+---
+
+## ⚡ Quick Start (CLI)
 
 ```bash
 # Clone the repo
@@ -178,6 +211,8 @@ python3 rep_tool.py 192.168.1.100 --report -o /tmp/incident_report.docx --classi
 ```
 IP-Domain-Reputation-Tool/
 ├── rep_tool.py        # CLI entry point & investigation orchestrator
+├── rep_gui.py         # GUI application (tkinter, dark B&W theme)
+├── build_windows.bat  # One-click Windows .exe build script
 ├── config.py          # API keys, constants, risk weights, port definitions
 ├── api_sources.py     # 7 OSINT API integrations with retry logic
 ├── dns_recon.py       # DNS, WHOIS, port scan, HTTP probe, TLS analysis
@@ -193,6 +228,7 @@ IP-Domain-Reputation-Tool/
 | Module | Purpose |
 |--------|---------|
 | `rep_tool.py` | CLI parsing, orchestration, terminal output formatting |
+| `rep_gui.py` | Windows GUI app (tkinter, dark theme, threaded analysis) |
 | `config.py` | API key loading (env → .env → json), constants, thresholds |
 | `api_sources.py` | OTX, AbuseIPDB, VT, Shodan, IPInfo, ThreatFox, URLhaus, TOR |
 | `dns_recon.py` | DNS resolution (A/AAAA/MX/NS/TXT/SOA/CNAME), reverse DNS, WHOIS, port scan, HTTP probe |

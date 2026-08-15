@@ -7,6 +7,12 @@ dist/
 build/
 .eggs/
 
+# Build
+dist/
+build/
+release/
+*.manifest
+
 # Environment / Secrets
 .env
 api_keys.json
