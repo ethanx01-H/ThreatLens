@@ -112,6 +112,7 @@ class RepToolApp:
         self.last_results = None
         self.api_keys = self._load_api_keys()
         self.report_format = "txt"  # default
+        self.all_results = []  # accumulated results for bulk export
 
         self._build_ui()
         self._setup_tags()
@@ -212,6 +213,16 @@ class RepToolApp:
             command=self._on_analyze,
         )
         self.analyze_btn.pack(side=RIGHT, padx=(0, 4))
+
+        self.bulk_btn = Button(
+            row1, text="BULK",
+            bg=Theme.BG_BUTTON, fg=Theme.FG,
+            activebackground=Theme.BG_BUTTON_HOVER, activeforeground=Theme.FG_ACCENT,
+            font=(Theme.FONT_FAMILY_UI, 10), relief="flat", padx=14, pady=6,
+            cursor="hand2", highlightthickness=1, highlightbackground=Theme.BORDER,
+            command=self._show_bulk_dialog,
+        )
+        self.bulk_btn.pack(side=RIGHT, padx=(0, 4))
 
         self.report_btn = Button(
             row1, text="REPORT",
@@ -604,6 +615,225 @@ class RepToolApp:
                   bg=Theme.BG, fg=Theme.FG_MUTED,
                   font=(Theme.FONT_FAMILY_UI, 8)).pack(side=LEFT, padx=(12, 0))
 
+    def _show_bulk_dialog(self):
+        """Open dialog for bulk IP/domain input."""
+        dialog = Toplevel(self.root)
+        dialog.title("Bulk Analyze")
+        dialog.geometry("500x420")
+        dialog.configure(bg=Theme.BG)
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Dark title bar
+        try:
+            import ctypes
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, 20, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int))
+        except Exception:
+            pass
+
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 250
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 210
+        dialog.geometry(f"+{x}+{y}")
+
+        # Header
+        hdr = Frame(dialog, bg=Theme.BG_HEADER, height=40)
+        hdr.pack(fill=X)
+        hdr.pack_propagate(False)
+        Label(hdr, text="  BULK ANALYZE",
+              bg=Theme.BG_HEADER, fg=Theme.FG_ACCENT,
+              font=(Theme.FONT_FAMILY_UI, 11, "bold")).pack(side=LEFT, padx=12)
+
+        body = Frame(dialog, bg=Theme.BG, padx=16, pady=10)
+        body.pack(fill=BOTH, expand=True)
+
+        Label(body, text="Enter one IP or domain per line:",
+              bg=Theme.BG, fg=Theme.FG_DIM,
+              font=(Theme.FONT_FAMILY_UI, 9)).pack(anchor="w")
+
+        text_widget = Text(body, bg=Theme.BG_INPUT, fg=Theme.FG_ACCENT,
+                          insertbackground=Theme.FG_ACCENT,
+                          font=(Theme.FONT_FAMILY, 10), relief="flat",
+                          highlightthickness=1, highlightbackground=Theme.BORDER,
+                          highlightcolor=Theme.BORDER_FOCUS,
+                          wrap="none", padx=8, pady=8)
+        text_widget.pack(fill=BOTH, expand=True, pady=(4, 8))
+
+        # Count label
+        count_var = StringVar(value="0 targets")
+        Label(body, textvariable=count_var, bg=Theme.BG, fg=Theme.FG_MUTED,
+              font=(Theme.FONT_FAMILY_UI, 9)).pack(anchor="w")
+
+        def _update_count(event=None):
+            content = text_widget.get("1.0", END).strip()
+            lines = [l.strip() for l in content.splitlines() if l.strip()]
+            count_var.set(f"{len(lines)} target(s)")
+
+        text_widget.bind("<KeyRelease>", _update_count)
+
+        btn_frame = Frame(dialog, bg=Theme.BG, padx=16, pady=10)
+        btn_frame.pack(fill=X, side="bottom")
+        Frame(dialog, bg=Theme.BORDER, height=1).pack(fill=X, side="bottom")
+
+        def _on_start():
+            content = text_widget.get("1.0", END).strip()
+            targets = [l.strip() for l in content.splitlines() if l.strip()]
+            if not targets:
+                return
+            dialog.destroy()
+            self.all_results = []  # reset accumulator
+            self._bulk_targets = targets
+            self._bulk_index = 0
+            self._run_next_bulk()
+
+        Button(btn_frame, text="START ANALYSIS", bg=Theme.FG_ACCENT, fg=Theme.BG,
+               activebackground=Theme.FG_DIM, activeforeground=Theme.BG,
+               font=(Theme.FONT_FAMILY_UI, 10, "bold"), relief="flat",
+               padx=20, pady=6, cursor="hand2", command=_on_start).pack(side=RIGHT)
+
+        Button(btn_frame, text="CANCEL", bg=Theme.BG_BUTTON, fg=Theme.FG,
+               activebackground=Theme.BG_BUTTON_HOVER, activeforeground=Theme.FG,
+               font=(Theme.FONT_FAMILY_UI, 10), relief="flat",
+               padx=16, pady=6, cursor="hand2", command=dialog.destroy,
+               highlightthickness=1, highlightbackground=Theme.BORDER).pack(side=RIGHT, padx=(0, 8))
+
+    def _run_next_bulk(self):
+        """Run the next target in the bulk queue."""
+        if not hasattr(self, '_bulk_targets') or self._bulk_index >= len(self._bulk_targets):
+            # All done — show summary
+            total = len(self.all_results)
+            self.root.after(0, lambda: self._writeln(f"\n{'='*68}", "dim"))
+            self.root.after(0, lambda: self._writeln(f"  BULK ANALYSIS COMPLETE: {total} target(s) analyzed", "accent"))
+            self.root.after(0, lambda: self._writeln(f"{'='*68}", "dim"))
+            self.root.after(0, lambda: self._writeln(f"  Click REPORT to export all {total} findings.", "info"))
+            self.root.after(0, lambda: self.status_var.set(f"Bulk complete: {total} target(s). Click REPORT to export."))
+            self.root.after(0, self._finish_analysis)
+            return
+
+        target = self._bulk_targets[self._bulk_index]
+        total = len(self._bulk_targets)
+        idx = self._bulk_index + 1
+
+        self.root.after(0, lambda: self._writeln(f"\n{'='*68}", "dim"))
+        self.root.after(0, lambda: self._writeln(f"  [{idx}/{total}] {target}", "accent"))
+        self.root.after(0, lambda: self._writeln(f"{'='*68}", "dim"))
+        self.root.after(0, lambda: self.status_var.set(f"Bulk [{idx}/{total}]: Analyzing {target}..."))
+
+        # Run analysis in thread
+        def _analyze_one():
+            try:
+                self._run_single_analysis(target)
+            except Exception as e:
+                self.root.after(0, lambda: self._writeln(f"  Error: {e}", "danger"))
+            finally:
+                self._bulk_index += 1
+                self.root.after(100, self._run_next_bulk)
+
+        threading.Thread(target=_analyze_one, daemon=True).start()
+
+    def _run_single_analysis(self, target):
+        """Run analysis for a single target and accumulate results."""
+        import re
+        is_ip = bool(re.match(r'^(\d{1,3}\.){3}\d{1,3}$', target))
+        is_domain = bool(re.match(
+            r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$', target))
+
+        if not is_ip and not is_domain:
+            self.root.after(0, lambda: self._writeln(f"  Skipping invalid target: {target}", "warning"))
+            return
+
+        from api_sources import (
+            query_ipinfo, query_otx_ip, query_otx_domain,
+            query_abuseipdb, query_virustotal_ip, query_virustotal_domain,
+            query_shodan, query_threatfox, query_urlhaus_host, check_tor_exit,
+        )
+        from dns_recon import full_ip_recon, full_domain_recon
+        from risk_engine import calculate_ip_risk, calculate_domain_risk
+
+        skip_ports = self.skip_ports_var.get()
+        results = {"target": target, "target_type": "ip" if is_ip else "domain"}
+        start_time = time.time()
+
+        def wl(text="", tag="stdout"):
+            self.root.after(0, lambda t=text, tg=tag: self._writeln(t, tg))
+        def wst(source, msg, tag="dim"):
+            self.root.after(0, lambda s=source, m=msg, t=tag: self._write_status(s, m, t))
+
+        if is_ip:
+            results["ipinfo"] = query_ipinfo(target)
+            results["otx"] = query_otx_ip(target)
+            results["abuseipdb"] = query_abuseipdb(target)
+            results["vt"] = query_virustotal_ip(target)
+            results["shodan"] = query_shodan(target)
+            results["threatfox"] = query_threatfox(target)
+            results["urlhaus"] = query_urlhaus_host(target)
+
+            for src, data in [("IPInfo", results["ipinfo"]), ("OTX", results["otx"]),
+                              ("AbuseIPDB", results["abuseipdb"]), ("VT", results["vt"]),
+                              ("Shodan", results["shodan"]), ("ThreatFox", results["threatfox"]),
+                              ("URLhaus", results["urlhaus"])]:
+                if data.get("error"):
+                    wst(src, data["error"], "warning")
+                else:
+                    wst(src, "OK", "success")
+
+            if skip_ports:
+                results["recon"] = {"port_scan": {"open_ports": [], "error": "Skipped"},
+                                    "reverse_dns": {"hostnames": [], "has_rdns": False}}
+            else:
+                results["recon"] = full_ip_recon(target)
+
+            results["risk"] = calculate_ip_risk(
+                ipinfo=results.get("ipinfo"), otx=results.get("otx"),
+                abuseipdb=results.get("abuseipdb"), vt=results.get("vt"),
+                shodan=results.get("shodan"), threatfox=results.get("threatfox"),
+                urlhaus=results.get("urlhaus"), recon=results.get("recon"))
+
+        else:
+            results["otx"] = query_otx_domain(target)
+            results["vt"] = query_virustotal_domain(target)
+            results["threatfox"] = query_threatfox(target)
+            results["urlhaus"] = query_urlhaus_host(target)
+
+            if skip_ports:
+                from dns_recon import resolve_dns, whois_lookup
+                results["recon"] = {"dns": resolve_dns(target), "whois": whois_lookup(target),
+                                    "port_scan": {"open_ports": [], "error": "Skipped"},
+                                    "resolved_ips": []}
+                results["recon"]["resolved_ips"] = results["recon"]["dns"].get("a_records", [])
+            else:
+                results["recon"] = full_domain_recon(target)
+
+            if results["recon"].get("resolved_ips"):
+                results["ipinfo"] = query_ipinfo(results["recon"]["resolved_ips"][0])
+
+            results["risk"] = calculate_domain_risk(
+                domain=target, otx=results.get("otx"), vt=results.get("vt"),
+                threatfox=results.get("threatfox"), urlhaus=results.get("urlhaus"),
+                recon=results.get("recon"))
+
+        elapsed = round(time.time() - start_time, 1)
+        results["elapsed_seconds"] = elapsed
+
+        risk = results["risk"]
+        cls = risk["classification"]
+        score = risk["score"]
+        is_good = risk.get("is_known_good", False)
+
+        cls_tag = {"CRITICAL": "danger", "HIGH": "warning", "MEDIUM": "warning", "LOW": "success"}.get(cls, "dim")
+        status = "KNOWN LEGITIMATE" if is_good else cls
+        wl(f"  Risk: {status} ({score}/100) [{elapsed}s]", cls_tag)
+
+        if risk.get("not_checked_sources"):
+            wl(f"  NOT CHECKED: {', '.join(risk['not_checked_sources'])}", "warning")
+
+        # Accumulate
+        self.all_results.append(results)
+        self.last_results = results  # keep single-result export working too
+
     def _toggle_format(self):
         """Toggle report format between TXT and DOCX."""
         current = self.fmt_var.get()
@@ -639,44 +869,58 @@ class RepToolApp:
         thread.start()
 
     def _on_report(self):
-        if not self.last_results:
+        # Determine what to export: bulk results or single result
+        results_list = self.all_results if self.all_results else (
+            [self.last_results] if self.last_results else [])
+
+        if not results_list:
             self.status_var.set("No analysis results. Run an analysis first.")
             return
 
-        fmt = self.fmt_var.get().lower()  # "txt" or "docx"
-        target = self.last_results.get("target", "unknown")
-        safe_target = target.replace(":", "-").replace("/", "-").replace("\\", "-").replace(".", "_")
-        default_name = f"TI_Report_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
-        output_path = os.path.join(BUNDLE_DIR, default_name)
+        fmt = self.fmt_var.get().lower()
+        count = len(results_list)
+        if count > 1:
+            default_name = f"Bulk_Report_{count}targets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
+        else:
+            target = results_list[0].get("target", "unknown")
+            safe = target.replace(":", "-").replace("/", "-").replace("\\", "-").replace(".", "_")
+            default_name = f"TI_Report_{safe}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
 
-        self.status_var.set(f"Generating {fmt.upper()} report...")
+        output_path = os.path.join(BUNDLE_DIR, default_name)
+        self.status_var.set(f"Generating {fmt.upper()} report ({count} target(s))...")
 
         def gen():
             try:
-                r = self.last_results
-                kwargs = dict(
-                    target=r["target"],
-                    target_type=r["target_type"],
-                    risk_assessment=r["risk"],
-                    ipinfo=r.get("ipinfo"),
-                    otx=r.get("otx"),
-                    abuseipdb=r.get("abuseipdb"),
-                    vt=r.get("vt"),
-                    shodan=r.get("shodan"),
-                    threatfox=r.get("threatfox"),
-                    urlhaus=r.get("urlhaus"),
-                    recon=r.get("recon"),
-                    output_path=output_path,
-                )
-                if fmt == "docx":
-                    from report_gen import generate_report
-                    path = generate_report(**kwargs)
+                if count == 1:
+                    # Single target report
+                    r = results_list[0]
+                    kwargs = dict(
+                        target=r["target"], target_type=r["target_type"],
+                        risk_assessment=r["risk"], ipinfo=r.get("ipinfo"),
+                        otx=r.get("otx"), abuseipdb=r.get("abuseipdb"),
+                        vt=r.get("vt"), shodan=r.get("shodan"),
+                        threatfox=r.get("threatfox"), urlhaus=r.get("urlhaus"),
+                        recon=r.get("recon"), output_path=output_path,
+                    )
+                    if fmt == "docx":
+                        from report_gen import generate_report
+                        path = generate_report(**kwargs)
+                    else:
+                        from report_gen import generate_txt_report
+                        path = generate_txt_report(**kwargs)
                 else:
-                    from report_gen import generate_txt_report
-                    path = generate_txt_report(**kwargs)
+                    # Bulk report: generate combined
+                    if fmt == "docx":
+                        from report_gen import generate_bulk_docx_report
+                        path = generate_bulk_docx_report(results_list, output_path)
+                    else:
+                        from report_gen import generate_bulk_txt_report
+                        path = generate_bulk_txt_report(results_list, output_path)
+
                 self.root.after(0, lambda: self.status_var.set(f"Report saved: {path}"))
                 self.root.after(0, lambda: self._writeln(f"\n  Report saved: {os.path.abspath(path)}", "success"))
             except Exception as e:
+                import traceback
                 self.root.after(0, lambda: self.status_var.set(f"Report error: {e}"))
                 self.root.after(0, lambda: self._writeln(f"\n  Report error: {e}", "danger"))
 

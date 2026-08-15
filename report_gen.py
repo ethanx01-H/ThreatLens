@@ -1051,3 +1051,304 @@ def generate_txt_report(
         f.write(content)
 
     return output_path
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Bulk Report Generators
+# ═══════════════════════════════════════════════════════════════════
+
+def generate_bulk_txt_report(results_list: list, output_path: str) -> str:
+    """Generate a combined TXT report for multiple targets."""
+    from collections import Counter
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    W = 72
+    lines = []
+
+    def ln(text=""):
+        lines.append(text)
+
+    def sec(title):
+        ln()
+        ln(f"--- {title} {''.ljust(W - len(title) - 6, chr(0x2500))}")
+        ln()
+
+    # Cover
+    ln("=" * W)
+    ln("  BULK THREAT INTELLIGENCE REPORT")
+    ln(f"  {len(results_list)} Target(s) Analyzed")
+    ln("=" * W)
+    ln(f"  Generated: {timestamp}")
+    ln("=" * W)
+
+    # Executive Summary
+    sec("EXECUTIVE SUMMARY")
+    ln(f"  {'#':<4s} {'Target':<35s} {'Type':<8s} {'Risk':<10s} {'Score':<8s} Status")
+    ln(f"  {''.ljust(80, chr(0x2500))}")
+
+    for i, r in enumerate(results_list, 1):
+        risk = r.get("risk", {})
+        cls = risk.get("classification", "N/A")
+        score = risk.get("score", 0)
+        is_good = risk.get("is_known_good", False)
+        status = "KNOWN GOOD" if is_good else cls
+        ln(f"  {i:<4d} {r.get('target', '?'):<35s} {r.get('target_type', '?'):<8s} {cls:<10s} {score:<8d} {status}")
+    ln()
+
+    cls_counts = Counter(r.get("risk", {}).get("classification", "N/A") for r in results_list)
+    good_count = sum(1 for r in results_list if r.get("risk", {}).get("is_known_good"))
+    ln(f"  Summary: {len(results_list)} total | "
+       f"{cls_counts.get('CRITICAL', 0)} CRITICAL | "
+       f"{cls_counts.get('HIGH', 0)} HIGH | "
+       f"{cls_counts.get('MEDIUM', 0)} MEDIUM | "
+       f"{cls_counts.get('LOW', 0)} LOW | "
+       f"{good_count} known-good")
+
+    # Per-Target Details
+    for i, r in enumerate(results_list, 1):
+        target = r.get("target", "?")
+        risk = r.get("risk", {})
+        cls = risk.get("classification", "N/A")
+        score = risk.get("score", 0)
+
+        sec(f"TARGET {i}: {target}")
+
+        ln(f"  Type: {r.get('target_type', '?').upper()}  |  Risk: {cls} ({score}/100)  |  "
+           f"Known-Good: {'YES' if risk.get('is_known_good') else 'No'}")
+        ln()
+
+        # Source verification
+        source_statuses = risk.get("source_statuses", {})
+        if source_statuses:
+            ln("  Source Verification:")
+            for src, status in source_statuses.items():
+                marker = "+" if status == "CHECKED" else "x"
+                ln(f"    [{marker}] {src:<16s} {status}")
+            ln()
+
+        # IP profile
+        ipinfo = r.get("ipinfo")
+        if ipinfo and not ipinfo.get("error"):
+            ln(f"  ASN: {ipinfo.get('asn', 'N/A')}  |  ISP: {ipinfo.get('isp', 'N/A')}")
+            ln(f"  Country: {ipinfo.get('country', 'N/A')}")
+            ln()
+
+        # Signals
+        signals = risk.get("signals", [])
+        if signals:
+            ln("  Signals:")
+            for sig in signals[:5]:
+                tier = sig.get("tier", "?")
+                ln(f"    [{sig['severity']}] {sig['source']}: {sig['signal']} (+{sig['weight']}) T{tier}")
+                interp = sig.get("interpretation", "")
+                if interp:
+                    ln(f"      {interp}")
+            ln()
+
+        # Mitigations
+        if risk.get("mitigations"):
+            ln("  Mitigations:")
+            for m in risk["mitigations"]:
+                ln(f"    * {m}")
+            ln()
+
+        not_checked = risk.get("not_checked_sources", [])
+        if not_checked:
+            ln(f"  NOT CHECKED: {', '.join(not_checked)}")
+            ln()
+
+    # Combined IOC Table
+    sec("COMBINED IOC TABLE")
+    ln(f"  {'Indicator':<38s} {'Type':<8s} {'Risk':<10s} {'Action'}")
+    ln(f"  {''.ljust(72, chr(0x2500))}")
+    for r in results_list:
+        target = r.get("target", "?")
+        risk = r.get("risk", {})
+        cls = risk.get("classification", "LOW")
+        action = "BLOCK" if cls in ("CRITICAL", "HIGH") else "MONITOR"
+        ln(f"  {target:<38s} {r.get('target_type', '?').upper():<8s} {cls:<10s} {action}")
+    ln()
+
+    # Footer
+    ln("=" * W)
+    ln(f"  Report generated: {timestamp}")
+    ln(f"  IP/Domain Reputation Tool v1.0 - Bulk Report")
+    ln("=" * W)
+
+    content = "\n".join(lines)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    return output_path
+
+
+def generate_bulk_docx_report(results_list: list, output_path: str) -> str:
+    """Generate a combined DOCX report for multiple targets."""
+    if not HAS_DOCX:
+        raise ImportError("python-docx not installed")
+
+    from collections import Counter
+
+    doc = Document()
+    for section in doc.sections:
+        section.top_margin = Cm(2)
+        section.bottom_margin = Cm(2)
+        section.left_margin = Cm(2.5)
+        section.right_margin = Cm(2.5)
+
+    _add_watermark(doc)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    sev_colors = {"CRITICAL": ("E74C3C", True), "HIGH": ("E67E22", True),
+                  "MEDIUM": ("F1C40F", False), "LOW": ("27AE60", True)}
+
+    # Cover
+    _add_header_logo(doc)
+    for _ in range(2):
+        doc.add_paragraph()
+
+    _add_styled_paragraph(doc, "BULK THREAT INTELLIGENCE REPORT",
+                          bold=True, size=Pt(26), color=RGBColor(0, 0x33, 0x66),
+                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
+    _add_styled_paragraph(doc, f"{len(results_list)} Target(s) Analyzed",
+                          size=Pt(14), color=RGBColor(0x66, 0x66, 0x66),
+                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
+    doc.add_paragraph()
+    _add_styled_paragraph(doc, f"Generated: {timestamp}", size=Pt(11),
+                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
+
+    # Summary
+    doc.add_paragraph()
+    cls_counts = Counter(r.get("risk", {}).get("classification", "N/A") for r in results_list)
+    summary_data = [
+        ("Total Targets", str(len(results_list))),
+        ("CRITICAL", str(cls_counts.get("CRITICAL", 0))),
+        ("HIGH", str(cls_counts.get("HIGH", 0))),
+        ("MEDIUM", str(cls_counts.get("MEDIUM", 0))),
+        ("LOW", str(cls_counts.get("LOW", 0))),
+        ("Known-Good", str(sum(1 for r in results_list if r.get("risk", {}).get("is_known_good")))),
+    ]
+    st = doc.add_table(rows=len(summary_data), cols=2, style='Light Shading Accent 1')
+    st.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for i, (k, v) in enumerate(summary_data):
+        _ct(st.rows[i].cells[0], k, bold=True, size=Pt(10))
+        _ct(st.rows[i].cells[1], v, size=Pt(10))
+
+    doc.add_page_break()
+
+    # Executive summary table
+    _add_styled_paragraph(doc, "Executive Summary", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+
+    t = doc.add_table(rows=len(results_list) + 1, cols=5, style='Light Shading Accent 1')
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for j, h in enumerate(["#", "Target", "Type", "Risk", "Score"]):
+        _ct(t.rows[0].cells[j], h, bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+        _set_cell_shading(t.rows[0].cells[j], "003366")
+
+    for i, r in enumerate(results_list):
+        row = t.rows[i + 1]
+        risk = r.get("risk", {})
+        cls = risk.get("classification", "N/A")
+        _ct(row.cells[0], str(i + 1), size=Pt(9))
+        _ct(row.cells[1], r.get("target", "?")[:35], size=Pt(9))
+        _ct(row.cells[2], r.get("target_type", "?").upper(), size=Pt(9))
+        hex_c, wt = sev_colors.get(cls, ("95A5A6", True))
+        _set_cell_shading(row.cells[3], hex_c)
+        _ct(row.cells[3], cls, bold=True, size=Pt(9),
+            color=RGBColor(255, 255, 255) if wt else RGBColor(0, 0, 0))
+        _ct(row.cells[4], str(risk.get("score", 0)), size=Pt(9))
+
+    doc.add_page_break()
+
+    # Per-target details
+    for i, r in enumerate(results_list, 1):
+        target = r.get("target", "?")
+        risk = r.get("risk", {})
+        cls = risk.get("classification", "N/A")
+
+        _add_styled_paragraph(doc, f"Target {i}: {target}",
+                              bold=True, size=Pt(14), color=RGBColor(0, 0x33, 0x66))
+
+        ipinfo = r.get("ipinfo")
+        if ipinfo and not ipinfo.get("error"):
+            profile = [
+                ("Target", target), ("Type", r.get("target_type", "?").upper()),
+                ("ASN", ipinfo.get("asn", "N/A")), ("ISP", ipinfo.get("isp", "N/A")),
+                ("Country", ipinfo.get("country", "N/A")),
+            ]
+            pt = doc.add_table(rows=len(profile), cols=2, style='Light Shading Accent 1')
+            pt.alignment = WD_TABLE_ALIGNMENT.CENTER
+            for pi, (k, v) in enumerate(profile):
+                _ct(pt.rows[pi].cells[0], k, bold=True, size=Pt(9))
+                _ct(pt.rows[pi].cells[1], str(v), size=Pt(9))
+
+        signals = risk.get("signals", [])
+        if signals:
+            doc.add_paragraph()
+            _add_styled_paragraph(doc, "Signals:", bold=True, size=Pt(11))
+            for sig in signals[:5]:
+                tier = sig.get("tier", "?")
+                interp = sig.get("interpretation", "")
+                _add_styled_paragraph(doc,
+                    f"[{sig['severity']}] {sig['source']}: {sig['signal']} (+{sig['weight']}) T{tier}",
+                    size=Pt(9))
+                if interp:
+                    _add_styled_paragraph(doc, f"  {interp}", size=Pt(8),
+                                          color=RGBColor(0x99, 0x99, 0x99))
+
+        not_checked = risk.get("not_checked_sources", [])
+        if not_checked:
+            _add_styled_paragraph(doc, f"NOT CHECKED: {', '.join(not_checked)}",
+                                  size=Pt(9), color=RGBColor(0xE6, 0x7E, 0x22))
+
+        actions = risk.get("recommended_actions", [])
+        if actions:
+            doc.add_paragraph()
+            _add_styled_paragraph(doc, "Recommended Actions:", bold=True, size=Pt(10))
+            for ai, act in enumerate(actions[:3], 1):
+                _add_styled_paragraph(doc, f"  {ai}. {act}", size=Pt(9))
+
+        if i < len(results_list):
+            doc.add_page_break()
+
+    # Combined IOC Table
+    doc.add_page_break()
+    _add_styled_paragraph(doc, "Combined IOC Table", bold=True, size=Pt(16),
+                          color=RGBColor(0, 0x33, 0x66))
+
+    ioc_t = doc.add_table(rows=len(results_list) + 1, cols=4, style='Light Shading Accent 1')
+    ioc_t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for j, h in enumerate(["Target", "Type", "Risk", "Action"]):
+        _ct(ioc_t.rows[0].cells[j], h, bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+        _set_cell_shading(ioc_t.rows[0].cells[j], "003366")
+
+    for i, r in enumerate(results_list):
+        row = ioc_t.rows[i + 1]
+        risk = r.get("risk", {})
+        cls = risk.get("classification", "LOW")
+        action = "BLOCK" if cls in ("CRITICAL", "HIGH") else "MONITOR"
+        _ct(row.cells[0], r.get("target", "?")[:35], size=Pt(8))
+        _ct(row.cells[1], r.get("target_type", "?").upper(), size=Pt(8))
+        hex_c, wt = sev_colors.get(cls, ("95A5A6", True))
+        _set_cell_shading(row.cells[2], hex_c)
+        _ct(row.cells[2], cls, bold=True, size=Pt(8),
+            color=RGBColor(255, 255, 255) if wt else RGBColor(0, 0, 0))
+        act_c = "E74C3C" if action == "BLOCK" else "F39C12"
+        _set_cell_shading(row.cells[3], act_c)
+        _ct(row.cells[3], action, bold=True, size=Pt(8), color=RGBColor(255, 255, 255))
+
+    doc.add_paragraph()
+    _add_styled_paragraph(doc, f"Report generated: {timestamp} | IP/Domain Reputation Tool v1.0",
+                          size=Pt(8), color=RGBColor(0x99, 0x99, 0x99),
+                          alignment=WD_ALIGN_PARAGRAPH.CENTER)
+
+    if not output_path:
+        output_path = f"Bulk_Report_{len(results_list)}targets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+
+    try:
+        doc.save(output_path)
+    except PermissionError:
+        output_path = output_path.replace(".docx", "_v2.docx")
+        doc.save(output_path)
+
+    return output_path

@@ -748,8 +748,8 @@ def _get_recommended_actions(classification: str, signals: list, is_known_good: 
         return actions
 
     has_c2 = any("c2" in s.get("signal", "").lower() for s in signals)
-    has_malware = any("malware" in s.get("signal", "").lower() for s in signals
-                      and s.get("tier", 3) <= 2)
+    has_malware = any("malware" in s.get("signal", "").lower() and s.get("tier", 3) <= 2
+                      for s in signals)
     has_ports = any("port" in s.get("source", "").lower() for s in signals)
     has_brute = any("brute" in s.get("signal", "").lower() for s in signals)
 
