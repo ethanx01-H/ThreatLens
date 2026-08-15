@@ -707,9 +707,27 @@ class RepToolApp:
             if not targets:
                 return
             dialog.destroy()
-            self.all_results = []  # reset accumulator
+
+            # Clear output area
+            self.output_text.configure(state=NORMAL)
+            self.output_text.delete("1.0", END)
+            self.output_text.configure(state=DISABLED)
+
+            # Set UI state
+            self.running = True
+            self.stop_event.clear()
+            self.stop_btn.pack(side=RIGHT, padx=(0, 4))
+            self.analyze_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
+            self.report_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
+            self.bulk_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
+            self.subs_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
+            self.progress.start(10)
+
+            # Reset accumulator and start
+            self.all_results = []
             self._bulk_targets = targets
             self._bulk_index = 0
+            self._writeln(f"  BULK ANALYSIS: {len(targets)} target(s)\n", "accent")
             self._run_next_bulk()
 
         Button(btn_frame, text="START ANALYSIS", bg=Theme.FG_ACCENT, fg=Theme.BG,
@@ -1419,6 +1437,8 @@ class RepToolApp:
         self.stop_btn.pack_forget()
         self.analyze_btn.configure(state=NORMAL, fg=Theme.BG)
         self.report_btn.configure(state=NORMAL, fg=Theme.FG)
+        self.bulk_btn.configure(state=NORMAL, fg=Theme.FG)
+        self.subs_btn.configure(state=NORMAL, fg=Theme.FG)
         self.progress.stop()
         self.status_var.set("Analysis complete." if self.last_results else "Ready.")
 
