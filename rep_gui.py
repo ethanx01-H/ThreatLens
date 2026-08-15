@@ -730,8 +730,6 @@ class RepToolApp:
             self.root.after(0, self._finish_analysis)
             return
         if not hasattr(self, '_bulk_targets') or self._bulk_index >= len(self._bulk_targets):
-            # All done
-        if not hasattr(self, '_bulk_targets') or self._bulk_index >= len(self._bulk_targets):
             # All done — show summary
             total = len(self.all_results)
             self.root.after(0, lambda: self._writeln(f"\n{'='*68}", "dim"))

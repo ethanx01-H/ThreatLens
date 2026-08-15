@@ -5,7 +5,7 @@ a = Analysis(
     ['rep_gui.py'],
     pathex=[],
     binaries=[],
-    datas=[('config.py', '.'), ('api_sources.py', '.'), ('dns_recon.py', '.'), ('risk_engine.py', '.'), ('report_gen.py', '.'), ('subdomain_enum.py', '.'), ('logo_512.png', '.'), ('logo_64.png', '.'), ('logo_watermark.png', '.')],
+    datas=[('config.py', '.'), ('api_sources.py', '.'), ('dns_recon.py', '.'), ('risk_engine.py', '.'), ('report_gen.py', '.'), ('subdomain_enum.py', '.'), ('logo_512.png', '.'), ('logo_64.png', '.')],
     hiddenimports=['dns.resolver', 'dns.rdatatype', 'dns.rdataclass', 'dns.exception', 'whois', 'requests', 'docx', 'docx.oxml', 'docx.oxml.ns', 'docx.shared', 'docx.enum.text', 'docx.enum.table', 'shodan', 'tkinter', 'tkinter.ttk', 'ctypes', 'json', 'ssl', 'PIL', 'PIL.Image', 'PIL.ImageTk', 'ipaddress'],
     hookspath=[],
     hooksconfig={},
