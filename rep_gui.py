@@ -24,6 +24,10 @@ else:
     BUNDLE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BUNDLE_DIR)
 
+# Logo paths
+LOGO_64 = os.path.join(BUNDLE_DIR, "logo_64.png")
+LOGO_512 = os.path.join(BUNDLE_DIR, "logo_512.png")
+
 # ═══════════════════════════════════════════════════════════════════
 # Theme Colors — Clean Black & White
 # ═══════════════════════════════════════════════════════════════════
@@ -131,6 +135,17 @@ class RepToolApp:
         header = Frame(self.root, bg=Theme.BG_HEADER, height=48)
         header.pack(fill=X, side="top")
         header.pack_propagate(False)
+
+        # Logo
+        try:
+            from PIL import Image, ImageTk
+            if os.path.exists(LOGO_64):
+                _logo_img = Image.open(LOGO_64).resize((32, 32), Image.LANCZOS)
+                self._logo_photo = ImageTk.PhotoImage(_logo_img)
+                Label(header, image=self._logo_photo,
+                      bg=Theme.BG_HEADER).pack(side=LEFT, padx=(12, 6), pady=8)
+        except Exception:
+            pass
 
         Label(
             header, text="IP/DOMAIN REPUTATION TOOL",

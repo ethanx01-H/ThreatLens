@@ -8,9 +8,11 @@ import os
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 
+import os as _os
+
 try:
     from docx import Document
-    from docx.shared import Pt, Cm, RGBColor, Inches
+    from docx.shared import Pt, Cm, RGBColor, Inches, Emu
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.enum.table import WD_TABLE_ALIGNMENT
     from docx.oxml.ns import qn
@@ -18,6 +20,11 @@ try:
     HAS_DOCX = True
 except ImportError:
     HAS_DOCX = False
+
+# Logo paths (relative to this file or exe bundle)
+_BUNDLE_DIR = _os.path.dirname(_os.path.abspath(__file__))
+_LOGO_512 = _os.path.join(_BUNDLE_DIR, "logo_512.png")
+_WATERMARK = _os.path.join(_BUNDLE_DIR, "logo_watermark.png")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -45,6 +52,33 @@ def _ct(cell, text, bold=False, size=Pt(9), color=None, align=None):
             if color:
                 r.font.color.rgb = color
 
+
+def _add_watermark(doc):
+    """Add a semi-transparent logo watermark behind page content."""
+    if not _os.path.exists(_WATERMARK):
+        return
+    for section in doc.sections:
+        header = section.header
+        if not header.paragraphs:
+            header.add_paragraph()
+        p = header.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run()
+        run.add_picture(_WATERMARK, width=Cm(6))
+        # Set the picture to be behind text (watermark effect)
+        # python-docx doesn't natively support z-index, so we use
+        # the header approach which renders behind body content
+
+def _add_header_logo(doc):
+    """Add logo image to the first page header area."""
+    if not _os.path.exists(_LOGO_512):
+        return
+    # Add as a small inline image at the top of the document
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run()
+    run.add_picture(_LOGO_512, width=Cm(4))
+    return p
 
 def _add_styled_paragraph(doc, text, style=None, bold=False, size=Pt(11),
                           color=None, alignment=None, space_after=Pt(6)):
@@ -111,11 +145,17 @@ def generate_report(
         section.left_margin = Cm(2.5)
         section.right_margin = Cm(2.5)
 
+    # Add watermark to all pages
+    _add_watermark(doc)
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     report_id = f"TI-{datetime.now().strftime('%Y%m%d')}-{target.replace('.', '-').replace(':', '-')}"
 
     # ─── Cover Page ────────────────────────────────────────────
-    for _ in range(4):
+    # Logo on cover page
+    _add_header_logo(doc)
+
+    for _ in range(3):
         doc.add_paragraph()
 
     _add_styled_paragraph(doc, "THREAT INTELLIGENCE REPORT",
