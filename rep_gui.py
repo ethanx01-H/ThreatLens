@@ -831,11 +831,23 @@ class RepToolApp:
 
         if is_ip:
             results["ipinfo"] = query_ipinfo(target)
+            if self._should_stop():
+                return
             results["otx"] = query_otx_ip(target)
+            if self._should_stop():
+                return
             results["abuseipdb"] = query_abuseipdb(target)
+            if self._should_stop():
+                return
             results["vt"] = query_virustotal_ip(target)
+            if self._should_stop():
+                return
             results["shodan"] = query_shodan(target)
+            if self._should_stop():
+                return
             results["threatfox"] = query_threatfox(target)
+            if self._should_stop():
+                return
             results["urlhaus"] = query_urlhaus_host(target)
 
             for src, data in [("IPInfo", results["ipinfo"]), ("OTX", results["otx"]),
@@ -871,8 +883,14 @@ class RepToolApp:
 
         else:
             results["otx"] = query_otx_domain(target)
+            if self._should_stop():
+                return
             results["vt"] = query_virustotal_domain(target)
+            if self._should_stop():
+                return
             results["threatfox"] = query_threatfox(target)
+            if self._should_stop():
+                return
             results["urlhaus"] = query_urlhaus_host(target)
 
             if skip_ports:
@@ -1007,7 +1025,10 @@ class RepToolApp:
         """Cancel running analysis."""
         self.stop_event.set()
         self.status_var.set("Stopping...")
-        self._writeln("\n  [STOP] Analysis cancelled by user.\n", "danger")
+
+    def _should_stop(self):
+        """Check if stop was requested. Returns True if should stop."""
+        return self.stop_event.is_set()
 
     def _toggle_format(self):
         """Toggle report format between TXT and DOCX."""
@@ -1162,6 +1183,10 @@ class RepToolApp:
             ws("Phase 1: OSINT Intelligence Collection")
 
             if is_ip:
+                if self._should_stop():
+                    self.root.after(0, self._finish_analysis)
+                    return
+
                 wst("IPInfo", "Querying...")
                 results["ipinfo"] = query_ipinfo(target)
                 ipinfo = results["ipinfo"]
@@ -1170,11 +1195,19 @@ class RepToolApp:
                 else:
                     wst("IPInfo", f"{ipinfo.get('country','')} | {ipinfo.get('asn','')} | {ipinfo.get('isp','')}", "success")
 
+                if self._should_stop():
+                    self.root.after(0, self._finish_analysis)
+                    return
+
                 wst("OTX", "Querying...")
                 results["otx"] = query_otx_ip(target)
                 otx = results["otx"]
                 tag = "danger" if otx.get("pulse_count", 0) > 0 else "success"
                 wst("OTX", f"{otx.get('pulse_count',0)} pulse(s), {otx.get('malware_count',0)} malware", tag)
+
+                if self._should_stop():
+                    self.root.after(0, self._finish_analysis)
+                    return
 
                 wst("AbuseIPDB", "Querying...")
                 results["abuseipdb"] = query_abuseipdb(target)
@@ -1185,6 +1218,10 @@ class RepToolApp:
                     acs = ab.get("abuse_confidence_score", 0)
                     tag = "danger" if acs >= 50 else "warning" if acs > 0 else "success"
                     wst("AbuseIPDB", f"Confidence: {acs}% ({ab.get('total_reports',0)} reports)", tag)
+
+                if self._should_stop():
+                    self.root.after(0, self._finish_analysis)
+                    return
 
                 wst("VirusTotal", "Querying...")
                 results["vt"] = query_virustotal_ip(target)
@@ -1197,6 +1234,10 @@ class RepToolApp:
                     tag = "danger" if mal > 0 else "success"
                     wst("VirusTotal", f"{mal}/{total} detections", tag)
 
+                if self._should_stop():
+                    self.root.after(0, self._finish_analysis)
+                    return
+
                 wst("Shodan", "Querying...")
                 results["shodan"] = query_shodan(target)
                 sh = results["shodan"]
@@ -1207,6 +1248,10 @@ class RepToolApp:
                     tag = "danger" if vulns else "success"
                     wst("Shodan", f"{len(sh.get('ports',[]))} port(s), {len(vulns)} CVE(s)", tag)
 
+                if self._should_stop():
+                    self.root.after(0, self._finish_analysis)
+                    return
+
                 wst("ThreatFox", "Querying...")
                 results["threatfox"] = query_threatfox(target)
                 tf = results["threatfox"]
@@ -1215,6 +1260,10 @@ class RepToolApp:
                 else:
                     tag = "danger" if tf.get("ioc_count", 0) > 0 else "success"
                     wst("ThreatFox", f"{tf.get('ioc_count',0)} IOC(s)", tag)
+
+                if self._should_stop():
+                    self.root.after(0, self._finish_analysis)
+                    return
 
                 wst("URLhaus", "Querying...")
                 results["urlhaus"] = query_urlhaus_host(target)
@@ -1240,6 +1289,10 @@ class RepToolApp:
                 tag = "danger" if otx.get("pulse_count", 0) > 0 else "success"
                 wst("OTX", f"{otx.get('pulse_count',0)} pulse(s)", tag)
 
+                if self._should_stop():
+                    self.root.after(0, self._finish_analysis)
+                    return
+
                 wst("VirusTotal", "Querying...")
                 results["vt"] = query_virustotal_domain(target)
                 vt = results["vt"]
@@ -1251,6 +1304,10 @@ class RepToolApp:
                     tag = "danger" if mal > 0 else "success"
                     wst("VirusTotal", f"{mal}/{total} detections", tag)
 
+                if self._should_stop():
+                    self.root.after(0, self._finish_analysis)
+                    return
+
                 wst("ThreatFox", "Querying...")
                 results["threatfox"] = query_threatfox(target)
                 tf = results["threatfox"]
@@ -1258,6 +1315,10 @@ class RepToolApp:
                     wst("ThreatFox", tf["error"], "warning")
                 else:
                     wst("ThreatFox", f"{tf.get('ioc_count',0)} IOC(s)", "danger" if tf.get("ioc_count",0) > 0 else "success")
+
+                if self._should_stop():
+                    self.root.after(0, self._finish_analysis)
+                    return
 
                 wst("URLhaus", "Querying...")
                 results["urlhaus"] = query_urlhaus_host(target)
