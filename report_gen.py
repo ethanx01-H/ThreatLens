@@ -645,3 +645,369 @@ tags:
         doc.save(output_path)
 
     return output_path
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TXT Report Generator
+# ═══════════════════════════════════════════════════════════════════
+
+def generate_txt_report(
+    target: str,
+    target_type: str,
+    risk_assessment: dict,
+    ipinfo: dict = None,
+    otx: dict = None,
+    abuseipdb: dict = None,
+    vt: dict = None,
+    shodan: dict = None,
+    threatfox: dict = None,
+    urlhaus: dict = None,
+    recon: dict = None,
+    output_path: str = None,
+    analyst: str = "Threat Intel Analyst",
+    classification: str = "CONFIDENTIAL",
+) -> str:
+    """Generate a plain-text threat intelligence report."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    report_id = f"TI-{datetime.now().strftime('%Y%m%d')}-{target.replace('.', '-').replace(':', '-')}"
+    risk = risk_assessment
+    W = 72
+
+    lines = []
+
+    def ln(text=""):
+        lines.append(text)
+
+    def hdr(title):
+        ln("=" * W)
+        ln(f"  {title}")
+        ln("=" * W)
+
+    def sec(title):
+        ln()
+        ln(f"--- {title} {'─' * (W - len(title) - 6)}")
+        ln()
+
+    def kv(key, value):
+        ln(f"  {key + ':':<24s} {value}")
+
+    def bar(label, value, max_val=100, width=35):
+        filled = int(width * value / max_val) if max_val > 0 else 0
+        ln(f"  {label:<20s} {'█' * filled}{'░' * (width - filled)} {value}/{max_val}")
+
+    # ─── Cover ─────────────────────────────────────────────────
+    ln()
+    ln("=" * W)
+    ln("  THREAT INTELLIGENCE REPORT")
+    ln(f"  IP/Domain Reputation Analysis")
+    ln("=" * W)
+    ln()
+    ln(f"  Target:         {target}")
+    ln(f"  Type:           {'IP Address' if target_type == 'ip' else 'Domain'}")
+    ln(f"  Risk:           {risk.get('classification', 'N/A')} (Score: {risk.get('score', 0)}/100)")
+    ln(f"  Report ID:      {report_id}")
+    ln(f"  Date:           {timestamp}")
+    ln(f"  Prepared By:    {analyst}")
+    ln(f"  Classification: {classification}")
+    ln()
+    ln("=" * W)
+
+    # ─── 1. Executive Summary ──────────────────────────────────
+    sec("1. EXECUTIVE SUMMARY")
+
+    signals = risk.get("signals", [])
+    not_checked = risk.get("not_checked_sources", [])
+    is_good = risk.get("is_known_good", False)
+
+    if is_good:
+        ln(f"  STATUS: KNOWN LEGITIMATE — {risk.get('known_good_reason', '')}")
+        ln()
+
+    kv("Risk Score", f"{risk.get('score', 0)}/100")
+    kv("Classification", risk.get("classification", "N/A"))
+    kv("Signals Detected", str(risk.get("signal_count", 0)))
+    kv("Known-Good Status", "YES" if is_good else "No")
+
+    if not_checked:
+        ln()
+        ln(f"  WARNING: The following sources were NOT checked:")
+        ln(f"  {', '.join(not_checked)}")
+        ln(f"  Assessment may be incomplete.")
+
+    # ─── 2. Source Verification ────────────────────────────────
+    sec("2. SOURCE VERIFICATION")
+    source_statuses = risk.get("source_statuses", {})
+    if source_statuses:
+        for src, status in source_statuses.items():
+            marker = "✓" if status == "CHECKED" else "✗"
+            ln(f"  [{marker}] {src:<16s} {status}")
+    else:
+        # Fallback: infer from data
+        for name, data in [("IPInfo", ipinfo), ("OTX", otx), ("AbuseIPDB", abuseipdb),
+                           ("VirusTotal", vt), ("Shodan", shodan),
+                           ("ThreatFox", threatfox), ("URLhaus", urlhaus)]:
+            if data is None or data.get("error"):
+                ln(f"  [✗] {name:<16s} NOT CHECKED")
+            else:
+                ln(f"  [✓] {name:<16s} CHECKED")
+
+    # ─── 3. Indicator Profile ──────────────────────────────────
+    sec("3. INDICATOR PROFILE")
+    if target_type == "ip" and ipinfo and not ipinfo.get("error"):
+        kv("IP Address", target)
+        kv("Hostname", ipinfo.get("hostname", "N/A") or "N/A")
+        kv("ASN", ipinfo.get("asn", "N/A"))
+        kv("ISP/Organization", ipinfo.get("isp", "N/A"))
+        kv("Country", ipinfo.get("country", "N/A"))
+        kv("City/Region", f"{ipinfo.get('city', '')}, {ipinfo.get('region', '')}".strip(", "))
+        if ipinfo.get("is_cloud"):
+            kv("Cloud Provider", ipinfo.get("cloud_provider", ""))
+    elif target_type == "domain" and recon:
+        dns = recon.get("dns", {})
+        whois_data = recon.get("whois", {})
+        kv("Domain", target)
+        kv("A Records", ", ".join(dns.get("a_records", [])) or "N/A")
+        kv("AAAA Records", ", ".join(dns.get("aaaa_records", [])) or "N/A")
+        kv("MX Records", ", ".join(f"{m[0]} (pri {m[1]})" for m in dns.get("mx_records", [])) or "N/A")
+        kv("NS Records", ", ".join(dns.get("ns_records", [])) or "N/A")
+        kv("Registrar", whois_data.get("registrar", "N/A"))
+        kv("Creation Date", whois_data.get("creation_date", "N/A"))
+        kv("Expiration Date", whois_data.get("expiration_date", "N/A"))
+    else:
+        kv("Target", target)
+
+    # ─── 4. Risk Assessment ────────────────────────────────────
+    sec("4. RISK ASSESSMENT")
+
+    if signals:
+        ln("  Score Breakdown:")
+        for sig in signals[:10]:
+            bar(sig["source"], sig["weight"])
+        ln()
+
+        ln("  Signal Details:")
+        ln()
+        for i, sig in enumerate(signals, 1):
+            tier = sig.get("tier", "?")
+            interp = sig.get("interpretation", "")
+            ln(f"  {i:2d}. [{sig['severity']}] {sig['source']}: {sig['signal']}")
+            ln(f"      Weight: +{sig['weight']}  Tier: {tier}")
+            if interp:
+                ln(f"      Interpretation: {interp}")
+            ln()
+    else:
+        ln("  No significant threat signals detected.")
+
+    # ─── 5. Mitigating Factors ─────────────────────────────────
+    if risk.get("mitigations"):
+        sec("5. MITIGATING FACTORS")
+        for m in risk["mitigations"]:
+            ln(f"  * {m}")
+
+    # ─── 6. Threat Intelligence Findings ───────────────────────
+    sec("6. THREAT INTELLIGENCE FINDINGS")
+
+    # OTX
+    if otx and not otx.get("error"):
+        ln(f"  AlienVault OTX:")
+        ln(f"    Pulse Count:      {otx.get('pulse_count', 0)}")
+        ln(f"    Malware Samples:  {otx.get('malware_count', 0)}")
+        ln(f"    Malicious URLs:   {otx.get('url_count', 0)}")
+        if otx.get("pulses"):
+            ln(f"    Top Pulses:")
+            for p in otx["pulses"][:5]:
+                ln(f"      - {p['name']} ({p.get('created', '')})")
+                if p.get("tags"):
+                    ln(f"        Tags: {', '.join(p['tags'][:5])}")
+        if otx.get("malware_samples"):
+            ln(f"    Associated Malware:")
+            for m in otx["malware_samples"][:5]:
+                ln(f"      - {m.get('malware_name', 'Unknown')} (AV: {m.get('av_name', 'N/A')})")
+        ln()
+
+    # AbuseIPDB
+    if abuseipdb and not abuseipdb.get("error"):
+        ln(f"  AbuseIPDB:")
+        ln(f"    Abuse Confidence: {abuseipdb.get('abuse_confidence_score', 0)}%")
+        ln(f"    Total Reports:    {abuseipdb.get('total_reports', 0)}")
+        ln(f"    Distinct Users:   {abuseipdb.get('num_distinct_users', 0)}")
+        ln(f"    Last Reported:    {abuseipdb.get('last_reported_at', 'N/A') or 'N/A'}")
+        ln(f"    Usage Type:       {abuseipdb.get('usage_type', 'N/A')}")
+        ln()
+    elif abuseipdb and abuseipdb.get("error"):
+        ln(f"  AbuseIPDB: NOT CHECKED — {abuseipdb.get('error', '')}")
+        ln()
+
+    # VirusTotal
+    if vt and not vt.get("error"):
+        mal = vt.get("malicious", 0)
+        sus = vt.get("suspicious", 0)
+        total = mal + sus + vt.get("harmless", 0) + vt.get("undetected", 0)
+        ln(f"  VirusTotal:")
+        ln(f"    Detection Ratio:  {mal}/{total} engines")
+        ln(f"    Malicious:        {mal}")
+        ln(f"    Suspicious:       {sus}")
+        ln(f"    Clean:            {vt.get('harmless', 0)}")
+        ln(f"    Reputation:       {vt.get('reputation', 'N/A')}")
+        ln()
+    elif vt and vt.get("error"):
+        ln(f"  VirusTotal: NOT CHECKED — {vt.get('error', '')}")
+        ln()
+
+    # Shodan
+    if shodan and not shodan.get("error"):
+        ln(f"  Shodan:")
+        ln(f"    Open Ports:       {', '.join(str(p) for p in shodan.get('ports', [])) or 'None'}")
+        ln(f"    OS:               {shodan.get('os', 'N/A') or 'N/A'}")
+        ln(f"    Organization:     {shodan.get('org', 'N/A')}")
+        ln(f"    Known CVEs:       {len(shodan.get('vulns', []))}")
+        if shodan.get("vulns"):
+            ln(f"    CVE List:         {', '.join(shodan['vulns'][:10])}")
+        ln()
+    elif shodan and shodan.get("error"):
+        ln(f"  Shodan: NOT CHECKED — {shodan.get('error', '')}")
+        ln()
+
+    # ThreatFox
+    if threatfox and not threatfox.get("error") and threatfox.get("ioc_count", 0) > 0:
+        ln(f"  ThreatFox:")
+        ln(f"    IOC Associations: {threatfox.get('ioc_count', 0)}")
+        for ioc in threatfox.get("iocs", [])[:5]:
+            ln(f"    - {ioc.get('malware', 'Unknown')} (Type: {ioc.get('threat_type', 'N/A')}, "
+               f"Confidence: {ioc.get('confidence', 0)}%)")
+        ln()
+    elif threatfox and threatfox.get("error"):
+        ln(f"  ThreatFox: NOT CHECKED — {threatfox.get('error', '')}")
+        ln()
+
+    # URLhaus
+    if urlhaus and not urlhaus.get("error") and urlhaus.get("is_listed"):
+        ln(f"  URLhaus:")
+        ln(f"    Status:           LISTED")
+        ln(f"    Threat:           {urlhaus.get('threat', 'N/A')}")
+        ln(f"    URLs:             {urlhaus.get('url_count', 0)} (Online: {urlhaus.get('urls_online', 0)})")
+        ln()
+    elif urlhaus and urlhaus.get("error"):
+        ln(f"  URLhaus: NOT CHECKED — {urlhaus.get('error', '')}")
+        ln()
+
+    # ─── 7. Network Reconnaissance ─────────────────────────────
+    if recon:
+        sec("7. NETWORK RECONNAISSANCE")
+
+        port_scan = recon.get("port_scan", {})
+        if port_scan and port_scan.get("open_ports") and not port_scan.get("error"):
+            from config import HIGH_RISK_PORTS
+            ln(f"  Port Scan Results:")
+            ln(f"    Open Ports: {len(port_scan.get('open_ports', []))}")
+            ln(f"    Scan Time:  {port_scan.get('scan_time', 0)}s")
+            ln()
+            ln(f"    {'Port':<8s} {'Service':<16s} {'Risk':<8s} Banner")
+            ln(f"    {'─' * 64}")
+            for p in port_scan["open_ports"]:
+                svc = HIGH_RISK_PORTS.get(p, "Unknown")
+                risk_flag = "HIGH" if p in HIGH_RISK_PORTS else "LOW"
+                banner = port_scan.get("service_banners", {}).get(p, "")[:40]
+                ln(f"    {p:<8d} {svc:<16s} {risk_flag:<8s} {banner}")
+            ln()
+
+        rdns = recon.get("reverse_dns", {})
+        if rdns:
+            ln(f"  Reverse DNS:")
+            ln(f"    PTR Records: {', '.join(rdns.get('hostnames', [])) or 'None'}")
+            ln()
+
+        http = recon.get("http_probe")
+        if http and not http.get("error"):
+            ln(f"  HTTP/HTTPS Probe:")
+            ln(f"    HTTP Status:  {http.get('http_status', 'N/A')}")
+            ln(f"    HTTPS Status: {http.get('https_status', 'N/A')}")
+            ln(f"    Server:       {http.get('server_header', 'N/A') or 'N/A'}")
+            ln(f"    TLS Version:  {http.get('tls_version', 'N/A') or 'N/A'}")
+            sec_hdrs = http.get("security_headers", {})
+            if sec_hdrs:
+                ln(f"    Security Headers:")
+                for h, v in sec_hdrs.items():
+                    status = "PRESENT" if v != "MISSING" else "MISSING"
+                    ln(f"      {h}: {status}")
+            ln()
+
+    # ─── 8. IOC Table ──────────────────────────────────────────
+    sec("8. IOC TABLE — BLOCK/MONITOR ACTIONS")
+    classification = risk.get("classification", "LOW")
+    action = "BLOCK" if classification in ("CRITICAL", "HIGH") else "MONITOR"
+    ln(f"  {'Indicator':<42s} {'Type':<8s} {'Severity':<10s} {'Action':<8s} Notes")
+    ln(f"  {'─' * 80}")
+    ln(f"  {target:<42s} {target_type.upper():<8s} {classification:<10s} {action:<8s} Primary indicator")
+
+    if otx and otx.get("malware_samples"):
+        for m in otx["malware_samples"][:3]:
+            if m.get("hash"):
+                ln(f"  {m['hash'][:40]:<42s} {'HASH':<8s} {'HIGH':<10s} {'BLOCK':<8s} {m.get('malware_name', '')[:25]}")
+
+    if threatfox and threatfox.get("iocs"):
+        for ioc in threatfox["iocs"][:3]:
+            ln(f"  {ioc.get('ioc', '')[:40]:<42s} {ioc.get('ioc_type', ''):<8s} {'HIGH':<10s} {'BLOCK':<8s} {ioc.get('malware', '')[:25]}")
+    ln()
+
+    # ─── 9. Recommended Actions ────────────────────────────────
+    sec("9. RECOMMENDED ACTIONS")
+    actions = risk.get("recommended_actions", [])
+    for i, act in enumerate(actions, 1):
+        ln(f"  {i}. {act}")
+    ln()
+
+    # ─── 10. Detection Rules ───────────────────────────────────
+    sec("10. DETECTION RULES")
+
+    ln("  Sigma Rule (Firewall):")
+    ln(f"  title: Traffic to/from {target}")
+    ln(f"  logsource: category: firewall")
+    ln(f"  detection:")
+    if target_type == "ip":
+        ln(f"    selection:")
+        ln(f"      DestinationIp|contains: '{target}'")
+    else:
+        ln(f"    selection:")
+        ln(f"      DestinationHostname|contains: '{target}'")
+    ln(f"    condition: selection")
+    ln(f"  level: {classification.lower()}")
+    ln()
+
+    ln("  Splunk Query:")
+    ln(f"  index=* (dest_ip=\"{target}\" OR src_ip=\"{target}\" OR dest=\"{target}\")")
+    ln(f"  | stats count by src_ip, dest_ip, dest, action, app")
+    ln(f"  | sort -count")
+    ln()
+
+    # ─── 11. Appendix ──────────────────────────────────────────
+    sec("11. APPENDIX — OSINT SOURCES")
+    sources = [
+        ("AlienVault OTX", f"https://otx.alienvault.com/indicator/ip/{target}"),
+        ("AbuseIPDB", f"https://www.abuseipdb.com/check/{target}"),
+        ("VirusTotal", f"https://www.virustotal.com/gui/ip-address/{target}" if target_type == "ip" else f"https://www.virustotal.com/gui/domain/{target}"),
+        ("Shodan", f"https://www.shodan.io/host/{target}" if target_type == "ip" else f"https://www.shodan.io/search?query=hostname:{target}"),
+        ("ThreatFox", "https://threatfox.abuse.ch/browse/"),
+        ("URLhaus", "https://urlhaus.abuse.ch/browse/"),
+        ("IPInfo", f"https://ipinfo.io/{target}"),
+    ]
+    for name, url in sources:
+        ln(f"  {name:<20s} {url}")
+    ln()
+
+    # ─── Footer ────────────────────────────────────────────────
+    ln("=" * W)
+    ln(f"  Report generated: {timestamp} | Classification: {classification}")
+    ln(f"  IP/Domain Reputation Tool v1.0")
+    ln("=" * W)
+
+    # ─── Save ──────────────────────────────────────────────────
+    if not output_path:
+        safe_target = target.replace(":", "-").replace("/", "-").replace("\\", "-")
+        output_path = f"TI_Report_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+
+    content = "\n".join(lines)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    return output_path

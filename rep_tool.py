@@ -34,7 +34,7 @@ from api_sources import (
 )
 from dns_recon import full_ip_recon, full_domain_recon
 from risk_engine import calculate_ip_risk, calculate_domain_risk, get_risk_badge
-from report_gen import generate_report
+from report_gen import generate_report, generate_txt_report
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -545,7 +545,9 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
 
     parser.add_argument("target", help="IP address or domain to investigate")
     parser.add_argument("--report", "-r", action="store_true",
-                        help="Generate DOCX report")
+                        help="Generate report (use --format to choose txt or docx)")
+    parser.add_argument("--format", "-f", type=str, default="txt",
+                        choices=["txt", "docx"], help="Report format: txt or docx (default: txt)")
     parser.add_argument("--output", "-o", type=str, default=None,
                         help="Output path for DOCX report")
     parser.add_argument("--json", "-j", action="store_true",
@@ -596,9 +598,10 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
             print_full_report(result)
 
             if args.report:
-                out_path = args.output or f"TI_Report_{target.replace('.', '_')}_{datetime.now().strftime('%Y%m%d')}.docx"
+                fmt = args.format
+                out_path = args.output or f"TI_Report_{target.replace('.', '_')}_{datetime.now().strftime('%Y%m%d')}.{fmt}"
                 try:
-                    path = generate_report(
+                    kwargs = dict(
                         target=target,
                         target_type=result["target_type"],
                         risk_assessment=result["risk"],
@@ -614,6 +617,10 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
                         analyst=args.analyst,
                         classification=args.classification,
                     )
+                    if fmt == "docx":
+                        path = generate_report(**kwargs)
+                    else:
+                        path = generate_txt_report(**kwargs)
                     print(f"  Report saved: {path}")
                 except ImportError as e:
                     print(f"  Report generation skipped: {e}")
@@ -649,11 +656,12 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
         results.pop("is_tor", None)
         print(json.dumps(results, indent=2, default=str))
 
-    # DOCX report
+    # Report generation
     if args.report:
-        print_section("Generating DOCX Report...")
+        fmt = args.format
+        print_section(f"Generating {fmt.upper()} Report...")
         try:
-            path = generate_report(
+            kwargs = dict(
                 target=target,
                 target_type=results["target_type"],
                 risk_assessment=results["risk"],
@@ -669,6 +677,10 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
                 analyst=args.analyst,
                 classification=args.classification,
             )
+            if fmt == "docx":
+                path = generate_report(**kwargs)
+            else:
+                path = generate_txt_report(**kwargs)
             print(f"\n  {Colors.GREEN}{Colors.BOLD}Report saved: {os.path.abspath(path)}{Colors.RESET}\n")
         except ImportError as e:
             print(f"\n  {Colors.RED}Report generation failed: {e}{Colors.RESET}")

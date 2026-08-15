@@ -107,6 +107,7 @@ class RepToolApp:
         self.running = False
         self.last_results = None
         self.api_keys = self._load_api_keys()
+        self.report_format = "txt"  # default
 
         self._build_ui()
         self._setup_tags()
@@ -255,6 +256,21 @@ class RepToolApp:
                 cursor="hand2",
             )
             cb.pack(side=LEFT, padx=(0, 16))
+
+        # Report format toggle
+        Label(row2, text="Report:", bg=Theme.BG_SECONDARY, fg=Theme.FG_DIM,
+              font=(Theme.FONT_FAMILY_UI, 9)).pack(side=LEFT, padx=(12, 4))
+
+        self.fmt_var = StringVar(value="TXT")
+        self.fmt_btn = Button(
+            row2, text="TXT",
+            bg=Theme.FG_ACCENT, fg=Theme.BG,
+            activebackground=Theme.FG_DIM, activeforeground=Theme.BG,
+            font=(Theme.FONT_FAMILY_UI, 9, "bold"), relief="flat",
+            width=5, cursor="hand2",
+            command=self._toggle_format,
+        )
+        self.fmt_btn.pack(side=LEFT)
 
         # ─── Separator ─────────────────────────────────────────
         sep = Frame(self.root, bg=Theme.BORDER, height=1)
@@ -573,6 +589,16 @@ class RepToolApp:
                   bg=Theme.BG, fg=Theme.FG_MUTED,
                   font=(Theme.FONT_FAMILY_UI, 8)).pack(side=LEFT, padx=(12, 0))
 
+    def _toggle_format(self):
+        """Toggle report format between TXT and DOCX."""
+        current = self.fmt_var.get()
+        if current == "TXT":
+            self.fmt_var.set("DOCX")
+            self.fmt_btn.configure(text="DOCX", bg=Theme.BG_BUTTON, fg=Theme.FG)
+        else:
+            self.fmt_var.set("TXT")
+            self.fmt_btn.configure(text="TXT", bg=Theme.FG_ACCENT, fg=Theme.BG)
+
     # ─── Button Handlers ───────────────────────────────────────
 
     def _on_analyze(self):
@@ -602,18 +628,18 @@ class RepToolApp:
             self.status_var.set("No analysis results. Run an analysis first.")
             return
 
+        fmt = self.fmt_var.get().lower()  # "txt" or "docx"
         target = self.last_results.get("target", "unknown")
         safe_target = target.replace(":", "-").replace("/", "-").replace("\\", "-").replace(".", "_")
-        default_name = f"TI_Report_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        default_name = f"TI_Report_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
         output_path = os.path.join(BUNDLE_DIR, default_name)
 
-        self.status_var.set("Generating DOCX report...")
+        self.status_var.set(f"Generating {fmt.upper()} report...")
 
         def gen():
             try:
-                from report_gen import generate_report
                 r = self.last_results
-                path = generate_report(
+                kwargs = dict(
                     target=r["target"],
                     target_type=r["target_type"],
                     risk_assessment=r["risk"],
@@ -627,6 +653,12 @@ class RepToolApp:
                     recon=r.get("recon"),
                     output_path=output_path,
                 )
+                if fmt == "docx":
+                    from report_gen import generate_report
+                    path = generate_report(**kwargs)
+                else:
+                    from report_gen import generate_txt_report
+                    path = generate_txt_report(**kwargs)
                 self.root.after(0, lambda: self.status_var.set(f"Report saved: {path}"))
                 self.root.after(0, lambda: self._writeln(f"\n  Report saved: {os.path.abspath(path)}", "success"))
             except Exception as e:
