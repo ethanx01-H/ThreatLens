@@ -224,6 +224,16 @@ class RepToolApp:
         )
         self.bulk_btn.pack(side=RIGHT, padx=(0, 4))
 
+        self.subs_btn = Button(
+            row1, text="SUBS",
+            bg=Theme.BG_BUTTON, fg=Theme.FG,
+            activebackground=Theme.BG_BUTTON_HOVER, activeforeground=Theme.FG_ACCENT,
+            font=(Theme.FONT_FAMILY_UI, 10), relief="flat", padx=14, pady=6,
+            cursor="hand2", highlightthickness=1, highlightbackground=Theme.BORDER,
+            command=self._on_subdomains,
+        )
+        self.subs_btn.pack(side=RIGHT, padx=(0, 4))
+
         self.report_btn = Button(
             row1, text="REPORT",
             bg=Theme.BG_BUTTON, fg=Theme.FG,
@@ -833,6 +843,91 @@ class RepToolApp:
         # Accumulate
         self.all_results.append(results)
         self.last_results = results  # keep single-result export working too
+
+    def _on_subdomains(self):
+        """Enumerate subdomains for the current domain target, then analyze all."""
+        target = self.target_var.get().strip()
+        if not target:
+            self.status_var.set("Enter a domain first (e.g., example.com)")
+            return
+
+        import re
+        if not re.match(r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$', target):
+            self.status_var.set("SUBS only works with domain names (e.g., example.com)")
+            return
+
+        # Clear output
+        self.output_text.configure(state=NORMAL)
+        self.output_text.delete("1.0", END)
+        self.output_text.configure(state=DISABLED)
+
+        self.running = True
+        self.subs_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
+        self.analyze_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
+        self.progress.start(10)
+        self.status_var.set(f"Enumerating subdomains for {target}...")
+
+        def _run():
+            try:
+                from subdomain_enum import enumerate_subdomains
+
+                self.root.after(0, lambda: self._write_header("SUBDOMAIN ENUMERATION"))
+                self.root.after(0, lambda: self._writeln(f"  Domain: {target}", "accent"))
+                self.root.after(0, lambda: self._writeln(f"  Scanning crt.sh, OTX, Shodan, VirusTotal...\n"))
+
+                result = enumerate_subdomains(target)
+
+                subs = result.get("subdomains", [])
+                sub_ips = result.get("subdomain_ips", {})
+                elapsed = result.get("elapsed", 0)
+
+                # Show results
+                self.root.after(0, lambda: self._writeln(f"  Found {len(subs)} subdomain(s) in {elapsed}s", "success"))
+
+                for src in result.get("sources_used", []):
+                    self.root.after(0, lambda s=src: self._writeln(f"    Source: {s}", "info"))
+                for src in result.get("sources_failed", []):
+                    self.root.after(0, lambda s=src: self._writeln(f"    Failed: {s}", "warning"))
+
+                if subs:
+                    self.root.after(0, lambda: self._writeln(f"\n  {'Subdomain':<45s} {'IP(s)'}", "accent"))
+                    self.root.after(0, lambda: self._writeln(f"  {'─'*70}", "dim"))
+                    for sub in subs:
+                        ips = sub_ips.get(sub, [])
+                        ip_str = ", ".join(ips[:3]) if ips else "no resolution"
+                        self.root.after(0, lambda s=sub, i=ip_str: self._writeln(f"  {s:<45s} {i}"))
+
+                    self.root.after(0, lambda: self._writeln(f"\n  Analyzing {len(subs)} subdomain(s)...\n", "accent"))
+
+                    # Analyze each subdomain
+                    self.all_results = []
+                    for idx, sub in enumerate(subs, 1):
+                        self.root.after(0, lambda i=idx, s=sub: self._writeln(
+                            f"  [{i}/{len(subs)}] {s}", "stdout"))
+                        self.root.after(0, lambda i=idx, s=sub: self.status_var.set(
+                            f"Subs [{i}/{len(subs)}]: Analyzing {s}..."))
+
+                        # Run analysis in the same thread
+                        self._run_single_analysis(sub)
+
+                    # Summary
+                    total = len(self.all_results)
+                    self.root.after(0, lambda: self._writeln(f"\n{'='*68}", "dim"))
+                    self.root.after(0, lambda: self._writeln(
+                        f"  SUBDOMAIN SCAN COMPLETE: {total} subdomain(s) analyzed", "accent"))
+                    self.root.after(0, lambda: self._writeln(f"{'='*68}", "dim"))
+                    self.root.after(0, lambda: self._writeln(
+                        f"  Click REPORT to export all {total} findings.", "info"))
+                else:
+                    self.root.after(0, lambda: self._writeln(
+                        f"  No subdomains found for {target}", "warning"))
+
+            except Exception as e:
+                self.root.after(0, lambda: self._writeln(f"  Error: {e}", "danger"))
+            finally:
+                self.root.after(0, self._finish_analysis)
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def _toggle_format(self):
         """Toggle report format between TXT and DOCX."""

@@ -35,6 +35,7 @@ from api_sources import (
 from dns_recon import full_ip_recon, full_domain_recon
 from risk_engine import calculate_ip_risk, calculate_domain_risk, get_risk_badge
 from report_gen import generate_report, generate_txt_report
+from subdomain_enum import enumerate_subdomains, wildcard_expand
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -564,6 +565,10 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
                         help="Minimal output (JSON only)")
     parser.add_argument("--batch", "-b", type=str, default=None,
                         help="File with one IP/domain per line for batch analysis")
+    parser.add_argument("--subdomains", "-s", action="store_true",
+                        help="Enumerate and analyze all subdomains of a domain")
+    parser.add_argument("--wildcard", "-w", type=str, default=None,
+                        help="Wildcard pattern: *.example.com, 192.168.1.*, or CIDR 10.0.0.0/24")
 
     args = parser.parse_args()
 
@@ -636,8 +641,81 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
         print(f"\n  Batch complete: {len(all_results)} target(s) investigated.\n")
         return
 
-    # ── Single Target Mode ─────────────────────────────────────
+    # ── Wildcard / Subdomain Expansion ───────────────────────────
     target = args.target.strip()
+    targets_list = [target]
+
+    if args.wildcard:
+        print(f"\n  Expanding wildcard: {args.wildcard}")
+        targets_list = wildcard_expand(args.wildcard)
+        print(f"  Expanded to {len(targets_list)} target(s)\n")
+        args.batch_mode = True  # treat as batch
+
+    elif args.subdomains and is_domain(target):
+        print(f"\n  Enumerating subdomains for: {target}")
+        from subdomain_enum import enumerate_subdomains
+        sub_result = enumerate_subdomains(target)
+        subs = sub_result.get("subdomains", [])
+        if subs:
+            targets_list = subs
+            print(f"  Found {len(subs)} subdomain(s) in {sub_result.get('elapsed', 0)}s")
+            for src in sub_result.get("sources_used", []):
+                print(f"    Source: {src}")
+        else:
+            print(f"  No subdomains found. Falling back to base domain.")
+            targets_list = [target]
+        args.batch_mode = True
+
+    # If expanded to multiple targets, run as batch
+    if len(targets_list) > 1 or getattr(args, 'batch_mode', False):
+        all_results = []
+        for i, t in enumerate(targets_list, 1):
+            if not args.quiet:
+                print(f"\n{'='*68}")
+                print(f"  [{i}/{len(targets_list)}] {t}")
+                print(f"{'='*68}")
+
+            if is_ip(t):
+                result = investigate_ip(t, skip_ports=args.skip_ports, skip_tor=args.skip_tor)
+            elif is_domain(t):
+                result = investigate_domain(t, skip_ports=args.skip_ports)
+            else:
+                print(f"  Skipping invalid target: {t}")
+                continue
+
+            all_results.append(result)
+            if not args.quiet:
+                print_full_report(result)
+
+        # Report generation for expanded targets
+        if args.report:
+            fmt = args.format
+            print_section(f"Generating {fmt.upper()} Report ({len(all_results)} targets)...")
+            try:
+                if len(all_results) == 1:
+                    kwargs = dict(
+                        target=all_results[0]["target"], target_type=all_results[0]["target_type"],
+                        risk_assessment=all_results[0]["risk"], ipinfo=all_results[0].get("ipinfo"),
+                        otx=all_results[0].get("otx"), abuseipdb=all_results[0].get("abuseipdb"),
+                        vt=all_results[0].get("vt"), shodan=all_results[0].get("shodan"),
+                        threatfox=all_results[0].get("threatfox"), urlhaus=all_results[0].get("urlhaus"),
+                        recon=all_results[0].get("recon"), output_path=args.output,
+                        analyst=args.analyst, classification=args.classification,
+                    )
+                    path = generate_report(**kwargs) if fmt == "docx" else generate_txt_report(**kwargs)
+                else:
+                    from report_gen import generate_bulk_txt_report, generate_bulk_docx_report
+                    out = args.output or f"Bulk_Report_{len(all_results)}targets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
+                    path = generate_bulk_docx_report(all_results, out) if fmt == "docx" else generate_bulk_txt_report(all_results, out)
+                print(f"\n  {Colors.GREEN}{Colors.BOLD}Report saved: {os.path.abspath(path)}{Colors.RESET}\n")
+            except Exception as e:
+                print(f"\n  {Colors.RED}Report error: {e}{Colors.RESET}\n")
+
+        if args.json:
+            print(json.dumps(all_results, indent=2, default=str))
+        return
+
+    # ── Single Target Mode ─────────────────────────────────────
 
     if is_ip(target):
         results = investigate_ip(target, skip_ports=args.skip_ports, skip_tor=args.skip_tor)
