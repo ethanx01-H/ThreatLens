@@ -6,51 +6,18 @@
 
 **Multi-Source Threat Intelligence Investigation**
 
-A comprehensive CLI tool for investigating IP addresses and domain names using
-7 OSINT sources, network reconnaissance, weighted risk scoring, and professional
-DOCX report generation.
+A comprehensive CLI + GUI tool for SOC analysts to investigate IP addresses and
+domain names using 7 OSINT sources, subdomain enumeration, wildcard search,
+tiered risk scoring, and professional report generation with SIEM detection rules.
 
 ---
 
-## 🪟 Windows Executable
-
-A standalone `.exe` is available — no Python installation required on the target machine.
-
-### Download
-
-Download `ThreatLens.exe` from the [releases](https://github.com/ethanx01-H/IP-Domain-Reputation-Tool/releases) page, or build it yourself (see below).
-
-### Build from Source
-
-```cmd
-cd IP-Domain-Reputation-Tool
-build_windows.bat
-```
-
-The executable will be created in `dist/ThreatLens.exe` (~17 MB standalone).
-
-### Usage
-
-1. Double-click `ThreatLens.exe`
-2. Enter an IP address or domain in the input field
-3. Click **ANALYZE** or press Enter
-4. Click **REPORT** to generate a DOCX file
-
-To set API keys, create a `.env` file next to the `.exe`:
-```
-ABUSEIPDB_API_KEY=your_key
-VIRUSTOTAL_API_KEY=your_key
-SHODAN_API_KEY=your_key
-```
-
----
-
-## ⚡ Quick Start (CLI)
+## ⚡ Quick Start
 
 ```bash
-# Clone the repo
-git clone https://github.com/ethanx01-H/IP-Domain-Reputation-Tool.git
-cd IP-Domain-Reputation-Tool
+# Clone
+git clone https://github.com/ethanx01-H/ThreatLens.git
+cd ThreatLens
 
 # Install dependencies
 pip install -r requirements.txt --break-system-packages
@@ -58,15 +25,50 @@ pip install -r requirements.txt --break-system-packages
 # Investigate an IP
 python3 rep_tool.py 1.2.3.4
 
-# Investigate a domain with DOCX report
+# Investigate a domain with TXT report
 python3 rep_tool.py suspicious-domain.com --report
 
-# Quick scan (skip port scanning for speed)
-python3 rep_tool.py 10.0.0.1 --skip-ports
+# DOCX report
+python3 rep_tool.py 1.2.3.4 --report --format docx
 
-# JSON output for SIEM integration
-python3 rep_tool.py 8.8.8.8 --json --skip-ports --quiet
+# Subdomain enumeration + analysis
+python3 rep_tool.py example.com --subdomains --report
+
+# Wildcard: scan a whole IP range
+python3 rep_tool.py -w '192.168.1.*' --skip-ports --json
+
+# Ctrl+C to stop at any time
 ```
+
+---
+
+## 🪟 Windows Executable
+
+A standalone `.exe` is available — no Python installation required.
+
+### Download
+
+Download `ThreatLens.exe` from the [releases](https://github.com/ethanx01-H/ThreatLens/releases) page.
+
+### Build from Source
+
+```cmd
+build_windows.bat
+```
+
+Output: `dist\ThreatLens.exe` (~17 MB standalone)
+
+### GUI Usage
+
+1. Double-click `ThreatLens.exe`
+2. Enter an IP or domain, click **ANALYZE** (or press Enter)
+3. Click **STOP** to cancel a running analysis
+4. Click **SUBS** to enumerate and analyze all subdomains
+5. Click **BULK** to analyze multiple targets at once
+6. Click **REPORT** to export (TXT or DOCX toggle)
+7. Click **⚙ SETTINGS** to configure API keys (masked, persistent)
+
+API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works forever.
 
 ---
 
@@ -75,59 +77,117 @@ python3 rep_tool.py 8.8.8.8 --json --skip-ports --quiet
 | Feature | Description |
 |---------|-------------|
 | **7 OSINT Sources** | AlienVault OTX, AbuseIPDB, VirusTotal, Shodan, IPInfo, ThreatFox, URLhaus |
-| **Network Recon** | DNS resolution, reverse DNS, WHOIS, TCP port scanning with banner grabbing |
-| **HTTP/HTTPS Probe** | Server headers, TLS certificate analysis, security header audit |
-| **Risk Scoring Engine** | Multi-signal weighted scoring (0–100) with CRITICAL/HIGH/MEDIUM/LOW classification |
-| **DOCX Reports** | Management-level reports with cover page, KPI dashboard, color-coded tables |
-| **Detection Rules** | Auto-generated Sigma rules and Splunk queries per indicator |
-| **IOC Tables** | BLOCK/MONITOR actions with severity color-coding |
+| **Subdomain Enumeration** | crt.sh, OTX passive DNS, Shodan, VirusTotal, DNS brute force (140+ names) |
+| **Wildcard Search** | `*.domain.com`, `192.168.1.*`, CIDR ranges (`10.0.0.0/24`) |
+| **Network Recon** | DNS (A/AAAA/MX/NS/TXT/SOA/CNAME), reverse DNS, WHOIS, TCP port scan with banner grab |
+| **HTTP/HTTPS Probe** | Server headers, TLS certificate, security header audit |
+| **Risk Scoring Engine** | Tiered multi-signal scoring (0–100) with known-good whitelists |
+| **Three-State Verdict** | MALICIOUS / BENIGN / NOT CHECKED per source |
+| **Report Export** | TXT or DOCX — color-coded tables, IOC tables, cover page |
+| **SIEM Detection Rules** | Sigma, Splunk, **Elastic SIEM** (EQL + KQL + JSON import) |
+| **Settings Panel** | GUI API key management with masked input, persistent storage |
+| **Bulk Analyze** | Queue multiple targets, export all findings in one report |
+| **STOP Button** | Cancel running analysis (GUI) or Ctrl+C (CLI) |
 | **TOR Detection** | Live TOR exit node list check |
-| **Batch Mode** | Process multiple indicators from a file |
 | **JSON Output** | Machine-readable output for SIEM/pipeline integration |
 
 ---
 
-## 📊 Risk Scoring
+## 📊 Risk Scoring (v2 — Tiered)
 
-The engine aggregates signals from all sources with weighted scoring:
+### Signal Tiers
 
-| Signal Source | Weight | Max |
-|--------------|--------|-----|
-| OTX Threat Pulses | 15/pulse | 75 |
-| OTX High-Risk Tags (botnet, C2, malware) | 8/tag | varies |
-| AbuseIPDB Confidence Score | 25% scaled | 25 |
-| VirusTotal Detections | 20/vendor | 100 |
-| Shodan CVEs | 10/CVE | 30 |
-| ThreatFox IOC Associations | 15/IOC | 45 |
-| URLhaus Listing | 15 flat | 15 |
-| High-Risk Open Ports | 5/port | 15 |
-| No Reverse DNS (active host) | 5 flat | 5 |
-| Known Bad ASN | 10 flat | 10 |
-| TOR Exit Node | 15 flat | 15 |
+| Tier | Strength | Sources |
+|------|----------|---------|
+| **TIER 1** | STRONG — direct malicious verdict | VT detections, AbuseIPDB ≥75%, ThreatFox C2, URLhaus listing, OTX pulses + bad tags, TOR exit |
+| **TIER 2** | MODERATE — suspicious context | OTX pulses (no tags), AbuseIPDB 40–74%, Shodan CVEs, high-risk ports, new domain age |
+| **TIER 3** | WEAK — passive/contextual | OTX malware associations, no reverse DNS, bulletproof ASN |
 
-**Classification Thresholds:**
-- 🔴 **CRITICAL (80–100)** — Active threat confirmed. Block immediately.
-- 🟠 **HIGH (60–79)** — Strong indicators. Block after business review.
-- 🟡 **MEDIUM (35–59)** — Suspicious. Add to monitoring watchlist.
-- 🟢 **LOW (0–34)** — Minimal indicators. Log for reference.
+### Known-Good Whitelist
+
+64 domains (Google, Microsoft, Cloudflare, Amazon, Apple, etc.) and 10 ASNs
+are whitelisted. OTX malware associations are suppressed for known-good domains.
+Score capped at 25 for legitimate infrastructure.
+
+### Classification
+
+| Level | Score | Action |
+|-------|-------|--------|
+| 🔴 CRITICAL | 80–100 | Block immediately, escalate |
+| 🟠 HIGH | 60–79 | Block after business review |
+| 🟡 MEDIUM | 35–59 | Add to monitoring watchlist |
+| 🟢 LOW | 0–34 | Log for reference |
 
 ---
 
-## 📋 DOCX Report Sections
+## 📋 Report Sections (TXT & DOCX)
 
-The `--report` flag generates a professional Word document containing:
-
-1. **Cover Page** — Classification, target, risk badge, metadata
-2. **Table of Contents**
-3. **Executive Summary** — KPI dashboard with color-coded status
-4. **Risk Assessment Dashboard** — Signal breakdown table
-5. **Indicator Profile** — Geolocation, ASN, ISP, DNS, WHOIS
-6. **Threat Intelligence Findings** — Per-source analysis (OTX, AbuseIPDB, VT, Shodan, ThreatFox, URLhaus)
-7. **Network Reconnaissance** — Port scan results, banners, HTTP probe, security headers
-8. **IOC Table** — All indicators with BLOCK/MONITOR actions
+1. **Executive Summary** — Risk score, classification, known-good status
+2. **Source Verification** — ✓ CHECKED / ✗ NOT CHECKED per source
+3. **Indicator Profile** — Geolocation, ASN, ISP, DNS, WHOIS
+4. **Risk Assessment** — Score breakdown with bar charts, signal tiers + interpretation
+5. **Mitigating Factors** — Whitelist, clean verdicts
+6. **Threat Intelligence Findings** — Per-source detail (OTX, AbuseIPDB, VT, Shodan, ThreatFox, URLhaus)
+7. **Network Reconnaissance** — Port table, banners, HTTP headers, TLS
+8. **IOC Table** — BLOCK/MONITOR actions with severity color-coding
 9. **Recommended Actions** — Classification-based response playbook
-10. **Detection Rules** — Sigma + Splunk queries
+10. **Detection Rules** — Sigma + Splunk + **Elastic SIEM** (EQL, KQL, JSON rule import)
 11. **Appendix** — OSINT source URLs for manual verification
+
+Bulk reports include a summary table + per-target detail pages + combined IOC table.
+
+---
+
+## 🖥️ CLI Reference
+
+```
+usage: rep_tool.py [-h] [--report] [--format {txt,docx}] [--output OUTPUT]
+                   [--json] [--skip-ports] [--skip-tor] [--analyst ANALYST]
+                   [--classification CLASSIFICATION] [--quiet] [--batch BATCH]
+                   [--subdomains] [--wildcard WILDCARD]
+                   target
+
+positional arguments:
+  target                    IP address or domain to investigate
+
+options:
+  --report, -r              Generate report
+  --format {txt,docx}, -f   Report format (default: txt)
+  --output, -o OUTPUT       Custom output path
+  --json, -j                JSON output
+  --skip-ports              Skip port scanning
+  --skip-tor                Skip TOR check
+  --subdomains, -s          Enumerate + analyze all subdomains
+  --wildcard, -w PATTERN    Wildcard: *.domain.com, 192.168.1.*, CIDR
+  --analyst ANALYST         Analyst name for report
+  --classification LEVEL    Report classification (default: CONFIDENTIAL)
+  --quiet, -q               JSON-only output
+  --batch, -b FILE          Batch: one target per line
+```
+
+### Examples
+
+```bash
+# Single IP
+python3 rep_tool.py 185.220.101.1
+
+# Domain with DOCX report
+python3 rep_tool.py evil-domain.com --report -f docx
+
+# Subdomain enumeration + analysis
+python3 rep_tool.py example.com --subdomains --report
+
+# Wildcard IP range
+python3 rep_tool.py -w '10.0.0.0/24' --skip-ports --json
+
+# Wildcard subdomain discovery
+python3 rep_tool.py -w '*.suspicious-domain.com' --report
+
+# Batch from file
+python3 rep_tool.py --batch iocs.txt --report -f txt
+
+# Stop with Ctrl+C at any time
+```
 
 ---
 
@@ -135,109 +195,53 @@ The `--report` flag generates a professional Word document containing:
 
 ### API Keys
 
-Free-tier sources (IPInfo, AlienVault OTX) work without keys. For enhanced
-coverage, set API keys via environment variables or create a `.env` file:
+Free-tier sources (IPInfo, OTX) work without keys. For enhanced coverage:
 
-```bash
-cp .env.example .env
-# Edit .env with your keys
-```
+**GUI:** Click ⚙ SETTINGS → enter keys → SAVE (masked, persistent)
+
+**CLI:** Set via environment variables, `.env` file, or `api_keys.json`:
 
 | Source | Free Tier | Get Key |
 |--------|-----------|---------|
-| IPInfo | ✅ (50k/mo) | https://ipinfo.io/account/token |
+| IPInfo | ✅ 50k/mo | https://ipinfo.io/account/token |
 | AlienVault OTX | ✅ | https://otx.alienvault.com/api |
-| AbuseIPDB | ✅ (1k/day) | https://www.abuseipdb.com/account/api |
-| VirusTotal | ✅ (4 req/min) | https://www.virustotal.com/gui/my-apikey |
-| ShodAN | ✅ (limited) | https://account.shodan.io/ |
+| AbuseIPDB | ✅ 1k/day | https://www.abuseipdb.com/account/api |
+| VirusTotal | ✅ 4 req/min | https://www.virustotal.com/gui/my-apikey |
+| Shodan | ✅ limited | https://account.shodan.io/ |
 | ThreatFox | ✅ | https://auth.abuse.ch/ |
 | URLhaus | ✅ | https://auth.abuse.ch/ |
-
-Alternatively, create `api_keys.json`:
-```json
-{
-  "abuseipdb": "your_key",
-  "virustotal": "your_key",
-  "shodan": "your_key",
-  "otx": "your_key",
-  "ipinfo": "your_key"
-}
-```
-
----
-
-## 🖥️ CLI Reference
-
-```
-usage: rep_tool.py [-h] [--report] [--output OUTPUT] [--json] [--skip-ports]
-                   [--skip-tor] [--analyst ANALYST] [--classification CLASSIFICATION]
-                   [--quiet] [--batch BATCH]
-                   target
-
-positional arguments:
-  target                    IP address or domain to investigate
-
-options:
-  --report, -r              Generate professional DOCX report
-  --output, -o OUTPUT       Custom output path for DOCX report
-  --json, -j                Output results as JSON
-  --skip-ports              Skip port scanning (faster investigation)
-  --skip-tor                Skip TOR exit node list check
-  --analyst ANALYST         Analyst name for report (default: Threat Intel Analyst)
-  --classification LEVEL    Report classification (default: CONFIDENTIAL)
-  --quiet, -q               JSON-only output, suppress terminal report
-  --batch, -b FILE          Batch mode: one IP/domain per line
-```
-
-### Examples
-
-```bash
-# Basic IP investigation with terminal output
-python3 rep_tool.py 185.220.101.1
-
-# Domain with full DOCX report
-python3 rep_tool.py malicious-domain.xyz --report --analyst "Ethan"
-
-# Quick JSON for pipeline integration
-python3 rep_tool.py 10.0.0.5 --json --skip-ports --skip-tor --quiet
-
-# Batch analysis from file with reports
-python3 rep_tool.py --batch iocs.txt --report
-
-# Custom output path and classification
-python3 rep_tool.py 192.168.1.100 --report -o /tmp/incident_report.docx --classification "TOP SECRET"
-```
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-IP-Domain-Reputation-Tool/
-├── rep_tool.py        # CLI entry point & investigation orchestrator
-├── rep_gui.py         # GUI application (tkinter, dark B&W theme)
-├── build_windows.bat  # One-click Windows .exe build script
-├── config.py          # API keys, constants, risk weights, port definitions
-├── api_sources.py     # 7 OSINT API integrations with retry logic
-├── dns_recon.py       # DNS, WHOIS, port scan, HTTP probe, TLS analysis
-├── risk_engine.py     # Multi-signal weighted risk scoring engine
-├── report_gen.py      # Professional DOCX report generator (python-docx)
-├── requirements.txt   # Python dependencies
-├── .env.example       # API key template
-└── README.md          # This file
+ThreatLens/
+├── rep_tool.py          # CLI entry point & orchestrator
+├── rep_gui.py           # GUI (tkinter, dark B&W theme)
+├── config.py            # API keys, constants, risk weights, whitelists
+├── api_sources.py       # 7 OSINT API integrations with retry logic
+├── dns_recon.py         # DNS, WHOIS, port scan, HTTP probe, TLS
+├── risk_engine.py       # Tiered risk scoring with known-good whitelists
+├── report_gen.py        # TXT + DOCX report generators (Sigma/Splunk/Elastic)
+├── subdomain_enum.py    # Subdomain discovery (crt.sh, OTX, Shodan, VT, brute)
+├── build_windows.bat    # One-click Windows .exe build
+├── app.ico              # Application icon
+├── anime_reputation_logo.svg  # Logo
+├── requirements.txt
+└── README.md
 ```
-
-### Module Responsibilities
 
 | Module | Purpose |
 |--------|---------|
-| `rep_tool.py` | CLI parsing, orchestration, terminal output formatting |
-| `rep_gui.py` | Windows GUI app (tkinter, dark theme, threaded analysis) |
-| `config.py` | API key loading (env → .env → json), constants, thresholds |
-| `api_sources.py` | OTX, AbuseIPDB, VT, Shodan, IPInfo, ThreatFox, URLhaus, TOR |
-| `dns_recon.py` | DNS resolution (A/AAAA/MX/NS/TXT/SOA/CNAME), reverse DNS, WHOIS, port scan, HTTP probe |
-| `risk_engine.py` | Weighted scoring, classification, recommended actions |
-| `report_gen.py` | DOCX generation with styled tables, color-coded severity, Sigma/Splunk rules |
+| `rep_tool.py` | CLI: argparse, orchestration, Ctrl+C handler |
+| `rep_gui.py` | GUI: dark theme, STOP/BULK/SUBS buttons, settings dialog |
+| `config.py` | APPDATA persistence, known-good domains/ASNs, API key loading |
+| `api_sources.py` | OTX, AbuseIPDB, VT, Shodan, IPInfo, ThreatFox, URLhaus (cfg at call time) |
+| `dns_recon.py` | DNS resolution, reverse DNS, WHOIS, port scan, HTTP/TLS probe |
+| `risk_engine.py` | 3-tier scoring, whitelist suppression, NOT CHECKED states |
+| `report_gen.py` | TXT + DOCX generators, bulk reports, Sigma/Splunk/Elastic rules |
+| `subdomain_enum.py` | crt.sh, OTX passive DNS, Shodan, VT, DNS brute force, wildcard expand |
 
 ---
 
@@ -245,72 +249,62 @@ IP-Domain-Reputation-Tool/
 
 - **Incident Response** — Investigate suspicious IPs/domains from SIEM alerts
 - **Threat Hunting** — Validate IOCs from threat intelligence feeds
+- **Subdomain Discovery** — Map attack surface of a target domain
 - **Proactive Defense** — Screen indicators before firewall rule changes
-- **Management Reporting** — Generate professional DOCX reports for stakeholders
-- **SIEM Integration** — JSON output for automated enrichment pipelines
-- **Batch IOC Processing** — Mass-analyze indicators from threat feeds
+- **Management Reporting** — Generate professional DOCX/TXT reports
+- **SIEM Integration** — JSON output + Elastic/Splunk/Sigma detection rules
+- **Bulk IOC Processing** — Mass-analyze indicators from threat feeds
+- **Network Mapping** — Wildcard IP range scanning with risk assessment
 
 ---
 
-## 🛠️ Dependencies
+## 🗺️ Roadmap
 
-- `python-docx` — DOCX report generation
-- `dnspython` — Advanced DNS resolution
-- `python-whois` — WHOIS lookups
-- `requests` — HTTP API calls
-- `shodan` — Shodan API client (optional)
+### Tier 1 — High Impact
+
+| # | Feature | Why |
+|---|---------|-----|
+| 1 | **MISP / OpenCTI Integration** | Push IOCs to MISP — makes ThreatLens part of SOC workflow |
+| 2 | **Real-Time Watchlist** | Continuous monitoring, alert on risk score changes |
+| 3 | **Historical Database (SQLite)** | Track risk trends over time, query past analyses |
+| 4 | **VirusTotal Behavior Tab** | Sandbox behavior + MITRE ATT&CK technique mapping |
+
+### Tier 2 — Medium Impact
+
+| # | Feature | Why |
+|---|---------|-----|
+| 5 | **GreyNoise Integration** | Distinguish targeted attacks from internet noise |
+| 6 | **Screenshot Capture** | Visual evidence of suspicious domains in reports |
+| 7 | **YARA Rule Generation** | Auto-generate YARA from malware associations |
+| 8 | **STIX 2.1 Output** | Standard format for intel sharing |
+| 9 | **Slack/Teams Webhook** | Push alerts on CRITICAL/HIGH findings |
+
+### Tier 3 — Nice to Have
+
+| # | Feature | Why |
+|---|---------|-----|
+| 10 | **Censys Integration** | Internet-wide scan data |
+| 11 | **PassiveTotal (RiskIQ)** | WHOIS history, passive DNS, cert pivoting |
+| 12 | **Web Dashboard** | Browser UI for team collaboration |
+| 13 | **Sigma Auto-Tuning** | Adjust rule severity by risk score |
+| 14 | **Hash Analysis** | File hash lookup (VT, MalwareBazaar) |
+| 15 | **API Server Mode** | REST API for XSOAR/Tines playbook integration |
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Pick any roadmap item, or:
+- Report bugs via GitHub Issues
+- Submit PRs for new OSINT integrations
+- Improve risk scoring logic
+- Add tests and documentation
 
 ---
 
 ## 📝 License
 
 MIT License — Free for SOC teams, threat researchers, and security analysts.
-
----
-
-## 🗺️ Roadmap — Future Improvements
-
-### Tier 1 — High Impact
-
-| # | Feature | Description | Why |
-|---|---------|-------------|-----|
-| 1 | **MISP / OpenCTI Integration** | Push IOCs directly to MISP or OpenCTI after analysis. Auto-create events with risk score and detection rules. Pull existing IOCs for correlation. | SOC teams already use MISP — makes ThreatLens part of their workflow |
-| 2 | **Real-Time Monitoring / Watchlist** | Add IPs/domains to a persistent watchlist. Periodic re-scan with configurable interval. Alert when risk score changes. Desktop notification on threshold breach. | Turns ThreatLens from one-shot investigation into continuous monitoring |
-| 3 | **Historical Database (SQLite)** | Store every analysis result locally. Track risk score changes over time. Query: "show me all CRITICAL IPs from last 30 days." Export to CSV/JSON. | Analysts need to see trends, not just snapshots |
-| 4 | **VirusTotal Behavior Tab** | Pull sandbox behavior reports (not just detections). Show communicating files, contacted URLs, dropped files. Map behavior to MITRE ATT&CK techniques. | Behavior analysis separates L1 triage from L3 investigation |
-
-### Tier 2 — Medium Impact
-
-| # | Feature | Description | Why |
-|---|---------|-------------|-----|
-| 5 | **GreyNoise Integration** | Check if IP is "noise" (internet background scanning) vs. targeted attack. | Reduces false positives significantly |
-| 6 | **Screenshot Capture** | Take screenshots of suspicious domains via headless browser. Attach to DOCX reports. | Visual evidence is powerful in incident reports |
-| 7 | **YARA Rule Generation** | Auto-generate YARA rules from malware associations. Map OTX/ThreatFox malware names to patterns. | Analysts can deploy YARA rules to EDR immediately |
-| 8 | **STIX 2.1 Output** | Export findings as STIX 2.1 bundle (.json). Compatible with TAXII servers. | Standard format for threat intel sharing between orgs |
-| 9 | **Email / Slack Notification** | Send alert when analysis finds CRITICAL/HIGH. Configurable webhook (Slack, Teams, Discord). | SOC teams need push notifications, not just reports |
-
-### Tier 3 — Nice to Have
-
-| # | Feature | Description | Why |
-|---|---------|-------------|-----|
-| 10 | **Censys Integration** | Internet-wide scan data (open services, certificates). | Better port/service discovery than Shodan alone |
-| 11 | **PassiveTotal (RiskIQ)** | WHOIS history, passive DNS, SSL certificate chains. Infrastructure pivoting. | Find related domains by shared certificates |
-| 12 | **Web Dashboard** | Flask/FastAPI browser-based UI for team collaboration. Shared analysis queue. Role-based access. | Multi-analyst SOC environments |
-| 13 | **Sigma Rule Auto-Tuning** | Adjust detection rule specificity based on risk score. Auto-import into Splunk/Elastic via API. | CRITICAL = block, HIGH = alert, MEDIUM = log |
-| 14 | **Hash Analysis** | Accept file hashes (MD5, SHA1, SHA256) as targets. Query VT, MalwareBazaar, Hybrid Analysis. | Expand from network IOCs to host IOCs |
-| 15 | **API Server Mode** | Run ThreatLens as a REST API (FastAPI). SIEM calls it for automated enrichment. Rate limiting + API key auth. | Enables automated playbook integration (XSOAR, Tines) |
-
-**Recommended next step:** #3 (Historical Database) + #2 (Watchlist Monitoring) — these two together turn ThreatLens from a one-shot investigation tool into a persistent SOC monitoring platform.
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Pick any item from the roadmap above, or:
-- Report bugs and feature requests via GitHub Issues
-- Submit PRs for new OSINT source integrations
-- Improve risk scoring logic or add new signal types
-- Add tests and documentation
 
 ---
 
