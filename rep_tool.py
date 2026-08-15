@@ -524,7 +524,21 @@ def print_full_report(results: dict):
 # CLI Entry Point
 # ═══════════════════════════════════════════════════════════════════
 
+# Ctrl+C handler
+import signal as _signal
+_interrupted = False
+
+def _sigint_handler(signum, frame):
+    global _interrupted
+    _interrupted = True
+    print(f"\n\n  {Colors.RED}[INTERRUPTED] Stopping...{Colors.RESET}")
+    sys.exit(130)
+
+_signal.signal(_signal.SIGINT, _sigint_handler)
+
+
 def main():
+    global _interrupted
     parser = argparse.ArgumentParser(
         description="ThreatLens",
         formatter_class=argparse.RawDescriptionHelpFormatter,

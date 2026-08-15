@@ -113,6 +113,8 @@ class RepToolApp:
         self.api_keys = self._load_api_keys()
         self.report_format = "txt"  # default
         self.all_results = []  # accumulated results for bulk export
+        import threading as _threading
+        self.stop_event = _threading.Event()
 
         self._build_ui()
         self._setup_tags()
@@ -213,6 +215,17 @@ class RepToolApp:
             command=self._on_analyze,
         )
         self.analyze_btn.pack(side=RIGHT, padx=(0, 4))
+
+        self.stop_btn = Button(
+            row1, text="STOP",
+            bg="#cc0000", fg="#ffffff",
+            activebackground="#990000", activeforeground="#ffffff",
+            font=(Theme.FONT_FAMILY_UI, 10, "bold"), relief="flat",
+            padx=14, pady=6, cursor="hand2",
+            command=self._on_stop,
+        )
+        self.stop_btn.pack(side=RIGHT, padx=(0, 4))
+        self.stop_btn.pack_forget()  # hidden until analysis starts
 
         self.bulk_btn = Button(
             row1, text="BULK",
@@ -711,7 +724,13 @@ class RepToolApp:
                highlightthickness=1, highlightbackground=Theme.BORDER).pack(side=RIGHT, padx=(0, 8))
 
     def _run_next_bulk(self):
-        """Run the next target in the bulk queue."""
+        if self.stop_event.is_set():
+            total = len(self.all_results)
+            self.root.after(0, lambda: self._writeln(f"\n  [STOP] Bulk analysis cancelled. {total} target(s) completed.", "danger"))
+            self.root.after(0, self._finish_analysis)
+            return
+        if not hasattr(self, '_bulk_targets') or self._bulk_index >= len(self._bulk_targets):
+            # All done
         if not hasattr(self, '_bulk_targets') or self._bulk_index >= len(self._bulk_targets):
             # All done — show summary
             total = len(self.all_results)
@@ -929,6 +948,12 @@ class RepToolApp:
 
         threading.Thread(target=_run, daemon=True).start()
 
+    def _on_stop(self):
+        """Cancel running analysis."""
+        self.stop_event.set()
+        self.status_var.set("Stopping...")
+        self._writeln("\n  [STOP] Analysis cancelled by user.\n", "danger")
+
     def _toggle_format(self):
         """Toggle report format between TXT and DOCX."""
         current = self.fmt_var.get()
@@ -955,6 +980,8 @@ class RepToolApp:
         self.output_text.configure(state=DISABLED)
 
         self.running = True
+        self.stop_event.clear()
+        self.stop_btn.pack(side=RIGHT, padx=(0, 4))
         self.analyze_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
         self.report_btn.configure(state=DISABLED, fg=Theme.FG_MUTED)
         self.progress.start(10)
@@ -1390,6 +1417,8 @@ class RepToolApp:
 
     def _finish_analysis(self):
         self.running = False
+        self.stop_event.clear()
+        self.stop_btn.pack_forget()
         self.analyze_btn.configure(state=NORMAL, fg=Theme.BG)
         self.report_btn.configure(state=NORMAL, fg=Theme.FG)
         self.progress.stop()
