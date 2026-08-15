@@ -29,33 +29,37 @@ LOGO_64 = os.path.join(BUNDLE_DIR, "logo_64.png")
 LOGO_512 = os.path.join(BUNDLE_DIR, "logo_512.png")
 
 # ═══════════════════════════════════════════════════════════════════
-# Theme — Eye-Cool Colors (comfortable for long use)
+# Theme — RGB(16, 32, 51) Navy Dark Theme
 # ═══════════════════════════════════════════════════════════════════
 
-# Eye-cool palette: soft blues, light grays, dark text
+# RGB(16, 32, 51) = #102033 — deep navy blue
+NAVY = "#102033"
+NAVY_LIGHT = "#1a2d42"
+NAVY_DARK = "#0a1520"
+
 THEME_COLORS = {
-    "BG":           "#F0F4F8",   # Light blue-gray background
-    "BG_SECONDARY": "#E8EEF4",   # Slightly darker for sections
-    "BG_INPUT":     "#FFFFFF",   # White input fields
-    "BG_BUTTON":    "#D6E4F0",   # Soft blue buttons
-    "BG_BUTTON_HOVER": "#C0D4E8", # Hover state
-    "BG_HEADER":    "#3B82C4",   # Medium blue header
-    "BG_OUTPUT":    "#FFFFFF",   # White output area
-    "BG_STATUS":    "#E2E8F0",   # Light gray status bar
+    "BG":           NAVY,          # Main background (RGB 16,32,51)
+    "BG_SECONDARY": NAVY_LIGHT,    # Slightly lighter navy
+    "BG_INPUT":     "#1a2d42",     # Input fields
+    "BG_BUTTON":    "#1e3a5f",     # Navy buttons
+    "BG_BUTTON_HOVER": "#2a4a70",  # Hover state
+    "BG_HEADER":    NAVY_DARK,     # Darker navy header
+    "BG_OUTPUT":    "#0d1b2a",     # Output area (darker)
+    "BG_STATUS":    "#0a1520",     # Status bar
 
-    "FG":           "#1E293B",   # Dark slate text
-    "FG_DIM":       "#64748B",   # Muted text
-    "FG_ACCENT":    "#3B82C4",   # Blue accent
-    "FG_MUTED":     "#94A3B8",   # Very muted
+    "FG":           "#e0e8f0",     # Light text
+    "FG_DIM":       "#7a8a9a",     # Muted text
+    "FG_ACCENT":    "#4a9eff",     # Bright blue accent
+    "FG_MUTED":     "#556677",     # Very muted
 
-    "BORDER":       "#CBD5E1",   # Light border
-    "BORDER_FOCUS": "#3B82C4",   # Blue focus border
+    "BORDER":       "#2a3a4a",     # Dark border
+    "BORDER_FOCUS": "#4a9eff",     # Blue focus border
 
-    "CRITICAL":     "#EF4444",   # Red
-    "HIGH":         "#F97316",   # Orange
-    "MEDIUM":       "#EAB308",   # Yellow
-    "LOW":          "#22C55E",   # Green
-    "INFO":         "#3B82C4",   # Blue
+    "CRITICAL":     "#EF4444",     # Red
+    "HIGH":         "#F97316",     # Orange
+    "MEDIUM":       "#EAB308",     # Yellow
+    "LOW":          "#22C55E",     # Green
+    "INFO":         "#4a9eff",     # Blue
 }
 
 class Theme:
