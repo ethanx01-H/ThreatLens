@@ -64,16 +64,18 @@ Output: `dist\ThreatLens.exe` (~17 MB standalone)
 2. Enter an IP or domain, click **ANALYZE** (or press Enter)
 3. Click **STOP** to cancel a running analysis (red button, appears during scan)
 4. Click **SUBS** to enumerate and analyze all subdomains of a domain
-5. Click **BULK** to analyze multiple targets — paste IPs/domains (one per line), click **OK** (Enter) to start or **Cancel** (Escape) to close
+5. Click **BULK** to analyze multiple targets — paste IPs/domains (one per line), configure options (Skip Port Scan, Skip TOR, JSON), click **OK** to start or **Cancel** to close
 6. Click **REPORT** to export — toggle between **TXT** and **DOCX** format
 7. Click **⚙ SETTINGS** to configure API keys (masked input, persistent storage)
 
+**Theme:** Eye-cool colors — soft blue (#3B82C4), light gray backgrounds, dark text. Comfortable for extended use.
+
 **Keyboard shortcuts:**
-- Enter — Start analysis (in main input) / Confirm (in dialogs)
+- Enter — Start analysis / Confirm dialog
 - Escape — Cancel dialog
 - Ctrl+C — Stop running analysis (CLI)
 
-API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works forever. Keys hot-reload without restarting the app.
+API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works forever.
 
 ---
 

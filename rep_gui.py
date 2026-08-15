@@ -29,59 +29,45 @@ LOGO_64 = os.path.join(BUNDLE_DIR, "logo_64.png")
 LOGO_512 = os.path.join(BUNDLE_DIR, "logo_512.png")
 
 # ═══════════════════════════════════════════════════════════════════
-# Theme System — Dark + Blue/White (switchable)
+# Theme — Eye-Cool Colors (comfortable for long use)
 # ═══════════════════════════════════════════════════════════════════
 
-BLUE = "#2791F5"
-BLUE_DARK = "#1a7ad4"
-BLUE_LIGHT = "#e8f2fd"
+# Eye-cool palette: soft blues, light grays, dark text
+THEME_COLORS = {
+    "BG":           "#F0F4F8",   # Light blue-gray background
+    "BG_SECONDARY": "#E8EEF4",   # Slightly darker for sections
+    "BG_INPUT":     "#FFFFFF",   # White input fields
+    "BG_BUTTON":    "#D6E4F0",   # Soft blue buttons
+    "BG_BUTTON_HOVER": "#C0D4E8", # Hover state
+    "BG_HEADER":    "#3B82C4",   # Medium blue header
+    "BG_OUTPUT":    "#FFFFFF",   # White output area
+    "BG_STATUS":    "#E2E8F0",   # Light gray status bar
 
-DARK_THEME = {
-    "BG": "#0d0d0d", "BG_SECONDARY": "#141414", "BG_INPUT": "#1a1a1a",
-    "BG_BUTTON": "#1a1a1a", "BG_BUTTON_HOVER": "#2a2a2a",
-    "BG_HEADER": "#000000", "BG_OUTPUT": "#0a0a0a", "BG_STATUS": "#111111",
-    "FG": "#e0e0e0", "FG_DIM": "#808080", "FG_ACCENT": "#ffffff",
-    "FG_MUTED": "#555555", "BORDER": "#2a2a2a", "BORDER_FOCUS": "#555555",
-}
+    "FG":           "#1E293B",   # Dark slate text
+    "FG_DIM":       "#64748B",   # Muted text
+    "FG_ACCENT":    "#3B82C4",   # Blue accent
+    "FG_MUTED":     "#94A3B8",   # Very muted
 
-LIGHT_THEME = {
-    "BG": "#ffffff", "BG_SECONDARY": "#f5f8fc", "BG_INPUT": "#ffffff",
-    "BG_BUTTON": "#f0f0f0", "BG_BUTTON_HOVER": "#e0e0e0",
-    "BG_HEADER": BLUE, "BG_OUTPUT": "#ffffff", "BG_STATUS": "#f0f4f8",
-    "FG": "#1a1a1a", "FG_DIM": "#666666", "FG_ACCENT": BLUE,
-    "FG_MUTED": "#999999", "BORDER": "#d0d0d0", "BORDER_FOCUS": BLUE,
+    "BORDER":       "#CBD5E1",   # Light border
+    "BORDER_FOCUS": "#3B82C4",   # Blue focus border
+
+    "CRITICAL":     "#EF4444",   # Red
+    "HIGH":         "#F97316",   # Orange
+    "MEDIUM":       "#EAB308",   # Yellow
+    "LOW":          "#22C55E",   # Green
+    "INFO":         "#3B82C4",   # Blue
 }
 
 class Theme:
-    # Shared colors (same in both themes)
-    CRITICAL        = "#ff4444"
-    HIGH            = "#ff8844"
-    MEDIUM          = "#ffcc44"
-    LOW             = "#44cc44"
-    INFO            = BLUE
-
+    # Fonts
     FONT_FAMILY     = "Consolas"
     FONT_FAMILY_UI  = "Segoe UI"
     FONT_SIZE       = 10
     FONT_SIZE_SMALL = 9
     FONT_SIZE_TITLE = 14
 
-    # Current theme colors (defaults to light)
-    _theme = LIGHT_THEME.copy()
-
-    @classmethod
-    def set_theme(cls, theme_dict):
-        cls._theme = theme_dict.copy()
-        # Update class attributes so Theme.BG, Theme.FG etc. work
-        for key, value in theme_dict.items():
-            setattr(cls, key, value)
-
-    @classmethod
-    def get(cls, key):
-        return cls._theme.get(key, "")
-
-# Set initial attributes on Theme class from LIGHT_THEME
-for _k, _v in LIGHT_THEME.items():
+# Set all color attributes on Theme class
+for _k, _v in THEME_COLORS.items():
     setattr(Theme, _k, _v)
 
 
@@ -137,7 +123,7 @@ class RepToolApp:
         self.all_results = []  # accumulated results for bulk export
         import threading as _threading
         self.stop_event = _threading.Event()
-        self.is_dark = False  # start in light mode
+
 
         self._build_ui()
         self._setup_tags()
@@ -190,17 +176,6 @@ class RepToolApp:
             command=self._show_settings,
         )
         self.settings_btn.pack(side=RIGHT, padx=(0, 4))
-
-        self.theme_btn = Button(
-            header, text="DARK",
-            bg=Theme.BG_HEADER, fg="#ffffff",
-            activebackground=Theme.BG_BUTTON_HOVER, activeforeground="#ffffff",
-            font=(Theme.FONT_FAMILY_UI, 9),
-            relief="flat", bd=0, padx=10, pady=4,
-            cursor="hand2",
-            command=self._toggle_theme,
-        )
-        self.theme_btn.pack(side=RIGHT, padx=(0, 4))
 
         Label(
             header, text="v1.0",
@@ -1083,124 +1058,7 @@ class RepToolApp:
         self.stop_event.set()
         self.status_var.set("Stopping...")
 
-    def _toggle_theme(self):
-        """Switch between light and dark themes."""
-        if self.is_dark:
-            # Switch to light
-            Theme.set_theme(LIGHT_THEME)
-            self.theme_btn.configure(text="DARK")
-            self.is_dark = False
-        else:
-            # Switch to dark
-            Theme.set_theme(DARK_THEME)
-            self.theme_btn.configure(text="LIGHT")
-            self.is_dark = True
-
-        # Apply theme to all widgets
-        self._apply_theme()
-
-    def _apply_theme(self):
-        """Apply current theme colors to all widgets."""
-        bg = Theme.BG
-        bg2 = Theme.BG_SECONDARY
-        fg = Theme.FG
-        accent = Theme.FG_ACCENT
-        border = Theme.BORDER
-        hdr = Theme.BG_HEADER
-        inp = Theme.BG_INPUT
-        output = Theme.BG_OUTPUT
-        status_bg = Theme.BG_STATUS
-
-        # Root
-        self.root.configure(bg=bg)
-
-        # Update specific named widgets if they exist
-        try:
-            # Header bar
-            for child in self.root.winfo_children():
-                wtype = child.winfo_class()
-                if wtype == "Frame":
-                    try:
-                        child_bg = child.cget("bg")
-                        # Header frame (has blue/black bg)
-                        if child_bg in ("#000000", BLUE, "#2791f5"):
-                            child.configure(bg=hdr)
-                            for sub in child.winfo_children():
-                                try:
-                                    sub.configure(bg=hdr)
-                                except:
-                                    pass
-                        # Input section
-                        elif child_bg in ("#141414", "#f5f8fc", BLUE_LIGHT):
-                            child.configure(bg=bg2)
-                            for sub in child.winfo_children():
-                                try:
-                                    sub.configure(bg=bg2)
-                                except:
-                                    pass
-                        # Status bar
-                        elif child_bg in ("#111111", "#f0f4f8"):
-                            child.configure(bg=status_bg)
-                            for sub in child.winfo_children():
-                                try:
-                                    sub.configure(bg=status_bg)
-                                except:
-                                    pass
-                        else:
-                            child.configure(bg=bg)
-                    except:
-                        pass
-                elif wtype == "Text":
-                    child.configure(bg=output, fg=fg, insertbackground=fg)
-        except:
-            pass
-
-        # Update output text area
-        try:
-            self.output_text.configure(bg=output, fg=fg, insertbackground=fg)
-        except:
-            pass
-
-        # Update header buttons
-        try:
-            self.settings_btn.configure(bg=hdr)
-            self.theme_btn.configure(bg=hdr)
-        except:
-            pass
-
-        # Update input entry
-        try:
-            self.target_entry.configure(
-                bg=inp, fg=accent, insertbackground=accent,
-                highlightbackground=border, highlightcolor=Theme.BORDER_FOCUS)
-        except:
-            pass
-
-        # Update checkboxes
-        try:
-            for child in self.root.winfo_children():
-                self._update_checkboxes(child)
-        except:
-            pass
-
-    def _update_checkboxes(self, widget):
-        """Update checkbox colors recursively."""
-        try:
-            if widget.winfo_class() == "Checkbutton":
-                parent_bg = Theme.BG_SECONDARY
-                try:
-                    parent_bg = widget.master.cget("bg")
-                except:
-                    pass
-                widget.configure(bg=parent_bg, fg=Theme.FG_DIM,
-                               selectcolor=Theme.BG_INPUT,
-                               activebackground=parent_bg)
-        except:
-            pass
-        for child in widget.winfo_children():
-            self._update_checkboxes(child)
-
-    def _apply_to_widget(self, widget):
+    def _should_stop(self):
         """Recursively apply theme to widget tree."""
         try:
             wtype = widget.winfo_class()
