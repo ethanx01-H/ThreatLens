@@ -145,17 +145,11 @@ def generate_report(
         section.left_margin = Cm(2.5)
         section.right_margin = Cm(2.5)
 
-    # Add watermark to all pages
-    _add_watermark(doc)
-
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     report_id = f"TI-{datetime.now().strftime('%Y%m%d')}-{target.replace('.', '-').replace(':', '-')}"
 
     # ─── Cover Page ────────────────────────────────────────────
-    # Logo on cover page
-    _add_header_logo(doc)
-
-    for _ in range(3):
+    for _ in range(4):
         doc.add_paragraph()
 
     _add_styled_paragraph(doc, "THREAT INTELLIGENCE REPORT",
@@ -1276,8 +1270,7 @@ def generate_bulk_docx_report(results_list: list, output_path: str) -> str:
                   "MEDIUM": ("F1C40F", False), "LOW": ("27AE60", True)}
 
     # Cover
-    _add_header_logo(doc)
-    for _ in range(2):
+    for _ in range(3):
         doc.add_paragraph()
 
     _add_styled_paragraph(doc, "BULK THREAT INTELLIGENCE REPORT",

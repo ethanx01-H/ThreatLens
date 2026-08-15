@@ -1,5 +1,9 @@
 # 🛡️ IP/Domain Reputation Tool v1.0
 
+<p align="center">
+  <img src="anime_reputation_logo.svg" width="180" alt="IP/Domain Reputation Tool Logo"/>
+</p>
+
 **Multi-Source Threat Intelligence Investigation**
 
 A comprehensive CLI tool for investigating IP addresses and domain names using
