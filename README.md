@@ -1,7 +1,7 @@
-# 🛡️ IP/Domain Reputation Tool v1.0
+# 🛡️ ThreatLens v1.0
 
 <p align="center">
-  <img src="anime_reputation_logo.svg" width="180" alt="IP/Domain Reputation Tool Logo"/>
+  <img src="anime_reputation_logo.svg" width="180" alt="ThreatLens Logo"/>
 </p>
 
 **Multi-Source Threat Intelligence Investigation**
@@ -18,7 +18,7 @@ A standalone `.exe` is available — no Python installation required on the targ
 
 ### Download
 
-Download `IPDomain-Reputation-Tool.exe` from the [releases](https://github.com/ethanx01-H/IP-Domain-Reputation-Tool/releases) page, or build it yourself (see below).
+Download `ThreatLens.exe` from the [releases](https://github.com/ethanx01-H/IP-Domain-Reputation-Tool/releases) page, or build it yourself (see below).
 
 ### Build from Source
 
@@ -27,11 +27,11 @@ cd IP-Domain-Reputation-Tool
 build_windows.bat
 ```
 
-The executable will be created in `dist/IPDomain-Reputation-Tool.exe` (~17 MB standalone).
+The executable will be created in `dist/ThreatLens.exe` (~17 MB standalone).
 
 ### Usage
 
-1. Double-click `IPDomain-Reputation-Tool.exe`
+1. Double-click `ThreatLens.exe`
 2. Enter an IP address or domain in the input field
 3. Click **ANALYZE** or press Enter
 4. Click **REPORT** to generate a DOCX file

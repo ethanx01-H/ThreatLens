@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IP/Domain Reputation Tool — GUI Version
+ThreatLens — GUI Version
 Clean black & white theme, Windows-native tkinter interface.
 """
 
@@ -96,7 +96,7 @@ class TextRedirector:
 class RepToolApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("IP/Domain Reputation Tool v1.0")
+        self.root.title("ThreatLens v1.0")
         self.root.geometry("900x720")
         self.root.minsize(750, 550)
         self.root.configure(bg=Theme.BG)

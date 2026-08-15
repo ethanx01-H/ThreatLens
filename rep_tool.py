@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IP/Domain Reputation Tool v1.0
+ThreatLens v1.0
 Multi-source OSINT investigation with risk scoring and professional reporting.
 
 Usage:
@@ -526,7 +526,7 @@ def print_full_report(results: dict):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="IP/Domain Reputation Tool",
+        description="ThreatLens",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

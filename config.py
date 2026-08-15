@@ -1,5 +1,5 @@
 """
-Configuration & API Key Management for IP/Domain Reputation Tool
+Configuration & API Key Management for ThreatLens
 Threat Intelligence Investigation
 
 API keys are loaded from persistent user storage (%APPDATA% on Windows).
@@ -19,11 +19,11 @@ def _get_appdata_dir() -> Path:
     """Get persistent config directory. Fixed location, not portable."""
     if sys.platform == "win32":
         base = os.environ.get("APPDATA", os.path.expanduser("~\\AppData\\Roaming"))
-        return Path(base) / "IPDomain-Reputation-Tool"
+        return Path(base) / "ThreatLens"
     else:
         # Linux/macOS
         base = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
-        return Path(base) / "ip-domain-reputation-tool"
+        return Path(base) / "threatlens"
 
 APPDATA_DIR = _get_appdata_dir()
 APPDATA_KEYS_FILE = APPDATA_DIR / "api_keys.json"
@@ -227,13 +227,13 @@ DNS_TIMEOUT = 5
 # ─── ASCII Banner ────────────────────────────────────────────────
 BANNER = r"""
 ╔══════════════════════════════════════════════════════════════════╗
-║   ____  _____ _____     _    ____                               ║
-║  |  _ \| ____|_ _\ \   / \  |  _ \                              ║
-║  | |_) |  _|  | | \ \ / _ \ | | | |                             ║
-║  |  __/| |___ | |  \ / ___ \| |_| |                             ║
-║  |_|   |_____|___| \_/_/   \_\____/  Reputation Tool v1.0       ║
+║   _____ _                    _    _                              ║
+║  |_   _| |__  _ __ ___  __ _| | _| |     Lens                   ║
+║    | | | '_ \| '__/ _ \/ _` | |/ / |                             ║
+║    | | | | | | | |  __/ (_| |   <| |___  v1.0                    ║
+║    |_| |_| |_|_|  \___|\__,_|_|\_\_____|                        ║
 ║                                                                  ║
-║  IP/Domain Threat Intelligence Investigation                     ║
+║  Threat Intelligence Investigation                               ║
 ║  Multi-Source OSINT | Risk Scoring | Professional Reporting      ║
 ╚══════════════════════════════════════════════════════════════════╝
 """

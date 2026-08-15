@@ -3,7 +3,7 @@ setlocal EnableDelayedExpansion
 
 echo.
 echo ============================================================
-echo   IP/Domain Reputation Tool - Windows Build Script
+echo   ThreatLens - Windows Build Script
 echo ============================================================
 echo.
 
@@ -53,7 +53,7 @@ if exist "dist" rmdir /s /q "dist"
     --noconfirm ^
     --onefile ^
     --windowed ^
-    --name "IPDomain-Reputation-Tool" ^
+    --name "ThreatLens" ^
     --add-data "config.py;." ^
     --add-data "api_sources.py;." ^
     --add-data "dns_recon.py;." ^
@@ -102,14 +102,14 @@ echo [3/3] Finalizing...
 
 :: Copy .exe to main directory
 if not exist "release" mkdir "release"
-copy /y "dist\IPDomain-Reputation-Tool.exe" "release\" >nul
+copy /y "dist\ThreatLens.exe" "release\" >nul
 
 :: Copy config files to release folder
 copy /y ".env.example" "release\.env.example" >nul 2>nul
 copy /y "README.md" "release\" >nul 2>nul
 
 :: Get file size
-for %%A in ("release\IPDomain-Reputation-Tool.exe") do set "SIZE=%%~zA"
+for %%A in ("release\ThreatLens.exe") do set "SIZE=%%~zA"
 set /a "SIZE_MB=!SIZE! / 1048576"
 
 echo.
@@ -117,7 +117,7 @@ echo ============================================================
 echo   BUILD SUCCESSFUL
 echo ============================================================
 echo.
-echo   Output:  release\IPDomain-Reputation-Tool.exe
+echo   Output:  release\ThreatLens.exe
 echo   Size:    !SIZE_MB! MB
 echo.
 echo   The .exe is a standalone executable - no Python required
