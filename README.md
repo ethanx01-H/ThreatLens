@@ -91,7 +91,7 @@ API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works f
 | **Report Export** | TXT or DOCX — color-coded tables, IOC tables, cover page |
 | **SIEM Detection Rules** | Sigma, Splunk, **Elastic SIEM** (EQL + KQL + JSON import) |
 | **Settings Panel** | GUI API key management with masked input, persistent storage |
-| **Bulk Analyze** | Queue multiple targets, export all findings in one report |
+| **Bulk Analyze** | Queue multiple targets — all options (skip ports, skip TOR, JSON) work in all modes |
 | **STOP Button** | Cancel running analysis (GUI) or Ctrl+C (CLI) |
 | **TOR Detection** | Live TOR exit node list check |
 | **JSON Output** | Machine-readable output for SIEM/pipeline integration |
@@ -309,6 +309,34 @@ ThreatLens/
 | 23 | **MITRE ATT&CK Mapping** | Map detected signals to ATT&CK techniques and tactics |
 | 24 | **Export to CSV** | Bulk export IOC tables as CSV for SIEM import |
 | 25 | **Dark Web Monitoring** | Check if domain/IP appears in dark web breach data |
+
+---
+
+## 🔒 Security
+
+### API Key Storage
+- Keys stored in `%APPDATA%\ThreatLens\api_keys.json` (Windows) or `~/.config/threatlens/` (Linux)
+- Keys never logged or included in reports
+- Keys loaded at runtime, not compiled into the exe
+- Hot-reload: changing keys in Settings takes effect immediately
+
+### Network Requests
+- SSL verification disabled intentionally for HTTP probe (suspicious domains often have invalid certs)
+- InsecureRequestWarning suppressed to reduce noise
+- All API calls use HTTPS endpoints
+- Rate limiting and retry logic on all API calls
+
+### Input Validation
+- IP addresses validated via regex before processing
+- Domain names validated via regex before processing
+- No shell injection vectors (no os.system, no eval, no exec)
+- No path traversal vulnerabilities
+- No unsafe deserialization (no pickle, yaml.load, or marshal)
+
+### Report Safety
+- Reports never include API keys
+- Reports never include raw credentials
+- Reports contain only OSINT-sourced threat intelligence
 
 ---
 
