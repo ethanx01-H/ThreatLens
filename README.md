@@ -62,13 +62,18 @@ Output: `dist\ThreatLens.exe` (~17 MB standalone)
 
 1. Double-click `ThreatLens.exe`
 2. Enter an IP or domain, click **ANALYZE** (or press Enter)
-3. Click **STOP** to cancel a running analysis
-4. Click **SUBS** to enumerate and analyze all subdomains
-5. Click **BULK** to analyze multiple targets at once
-6. Click **REPORT** to export (TXT or DOCX toggle)
-7. Click **⚙ SETTINGS** to configure API keys (masked, persistent)
+3. Click **STOP** to cancel a running analysis (red button, appears during scan)
+4. Click **SUBS** to enumerate and analyze all subdomains of a domain
+5. Click **BULK** to analyze multiple targets — paste IPs/domains (one per line), click **OK** (Enter) to start or **Cancel** (Escape) to close
+6. Click **REPORT** to export — toggle between **TXT** and **DOCX** format
+7. Click **⚙ SETTINGS** to configure API keys (masked input, persistent storage)
 
-API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works forever.
+**Keyboard shortcuts:**
+- Enter — Start analysis (in main input) / Confirm (in dialogs)
+- Escape — Cancel dialog
+- Ctrl+C — Stop running analysis (CLI)
+
+API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works forever. Keys hot-reload without restarting the app.
 
 ---
 
@@ -290,15 +295,32 @@ ThreatLens/
 | 14 | **Hash Analysis** | File hash lookup (VT, MalwareBazaar) |
 | 15 | **API Server Mode** | REST API for XSOAR/Tines playbook integration |
 
+### Tier 4 — Ideas Backlog
+
+| # | Feature | Why |
+|---|---------|-----|
+| 16 | **DNS Zone Transfer Check** | Test if domain allows AXFR — reveals full DNS zone |
+| 17 | **SSL Certificate Analysis** | Parse cert details (issuer, SAN, expiry) for domain IOCs |
+| 18 | **Email Header Analysis** | Parse email headers for sender IP, SPF/DKIM/DMARC results |
+| 19 | **Phishing Detection** | Check domain against PhishTank, OpenPhish feeds |
+| 20 | **URL Scanning** | Accept full URLs as targets, extract domain/IP for analysis |
+| 21 | **WHOIS History** | Track domain registration changes over time |
+| 22 | **Recorded Future Integration** | Commercial threat intel with AI-powered risk scoring |
+| 23 | **MITRE ATT&CK Mapping** | Map detected signals to ATT&CK techniques and tactics |
+| 24 | **Export to CSV** | Bulk export IOC tables as CSV for SIEM import |
+| 25 | **Dark Web Monitoring** | Check if domain/IP appears in dark web breach data |
+
 ---
 
 ## 🤝 Contributing
 
 Contributions welcome! Pick any roadmap item, or:
-- Report bugs via GitHub Issues
-- Submit PRs for new OSINT integrations
-- Improve risk scoring logic
-- Add tests and documentation
+- Report bugs and feature requests via [GitHub Issues](https://github.com/ethanx01-H/ThreatLens/issues)
+- Submit PRs for new OSINT source integrations
+- Improve risk scoring logic or add new signal types
+- Add unit tests and integration tests
+- Improve documentation and add usage examples
+- Translate reports to other languages
 
 ---
 
