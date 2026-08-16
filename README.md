@@ -4,6 +4,17 @@
   <img src="anime_reputation_logo.svg" width="180" alt="ThreatLens Logo"/>
 </p>
 
+<p align="center">
+  <a href="https://github.com/ethanx01-H/ThreatLens/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/python-3.8%2B-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg" alt="Platform">
+  <a href="https://github.com/ethanx01-H/ThreatLens/releases"><img src="https://img.shields.io/github/v/release/ethanx01-H/ThreatLens.svg" alt="Release"></a>
+  <a href="https://github.com/ethanx01-H/ThreatLens/stargazers"><img src="https://img.shields.io/github/stars/ethanx01-H/ThreatLens.svg?style=social" alt="Stars"></a>
+  <a href="https://github.com/ethanx01-H/ThreatLens/network/members"><img src="https://img.shields.io/github/forks/ethanx01-H/ThreatLens.svg?style=social" alt="Forks"></a>
+  <img src="https://img.shields.io/badge/osint-7_sources-green.svg" alt="OSINT Sources">
+  <img src="https://img.shields.io/badge/risk_scoring-tiered-red.svg" alt="Risk Scoring">
+</p>
+
 **Multi-Source Threat Intelligence Investigation**
 
 A CLI + GUI tool for SOC analysts to investigate IP addresses and domain names using 7 OSINT sources, subdomain enumeration, wildcard search, tiered risk scoring, and professional report generation with SIEM detection rules.
