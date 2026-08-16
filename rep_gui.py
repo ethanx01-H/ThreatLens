@@ -164,7 +164,7 @@ class RepToolApp:
             pass
 
         Label(
-            header, text="IP/DOMAIN REPUTATION TOOL",
+            header, text="ThreatLens",
             bg=Theme.BG_HEADER, fg=Theme.FG_ACCENT,
             font=(Theme.FONT_FAMILY_UI, 13, "bold"),
             anchor="w", padx=16,
