@@ -299,12 +299,9 @@ class RepToolApp:
 
         self.skip_ports_var = BooleanVar(value=False)
         self.skip_tor_var = BooleanVar(value=False)
-        self.json_var = BooleanVar(value=False)
-
         for var, text in [
             (self.skip_ports_var, "Skip Port Scan"),
             (self.skip_tor_var, "Skip TOR Check"),
-            (self.json_var, "JSON Output"),
         ]:
             cb = Checkbutton(
                 row2, text=text,
@@ -715,11 +712,9 @@ class RepToolApp:
 
         bulk_skip_ports = BooleanVar(value=self.skip_ports_var.get())
         bulk_skip_tor = BooleanVar(value=self.skip_tor_var.get())
-        bulk_json = BooleanVar(value=self.json_var.get())
 
         for var, text in [(bulk_skip_ports, "Skip Port Scan"),
-                          (bulk_skip_tor, "Skip TOR Check"),
-                          (bulk_json, "JSON Output")]:
+                          (bulk_skip_tor, "Skip TOR Check")]:
             Checkbutton(opt_frame, text=text, variable=var,
                        bg=Theme.BG, fg=Theme.FG_DIM,
                        selectcolor=Theme.BG_INPUT,
@@ -740,7 +735,6 @@ class RepToolApp:
             # Apply bulk dialog options to main checkboxes
             self.skip_ports_var.set(bulk_skip_ports.get())
             self.skip_tor_var.set(bulk_skip_tor.get())
-            self.json_var.set(bulk_json.get())
             dialog.destroy()
             self._start_bulk_analysis(targets)
 
@@ -856,7 +850,6 @@ class RepToolApp:
 
         skip_ports = self.skip_ports_var.get()
         skip_tor = self.skip_tor_var.get()
-        json_output = self.json_var.get()
         results = {"target": target, "target_type": "ip" if is_ip else "domain"}
         start_time = time.time()
 
@@ -960,13 +953,6 @@ class RepToolApp:
 
         if risk.get("not_checked_sources"):
             wl(f"  NOT CHECKED: {', '.join(risk['not_checked_sources'])}", "warning")
-
-        # JSON output
-        if json_output:
-            json_out = {k: v for k, v in results.items() if k != "is_tor"}
-            import json as _json
-            wl(f"\n  JSON Output:", "info")
-            wl(_json.dumps(json_out, indent=2, default=str))
 
         # Accumulate
         self.all_results.append(results)
@@ -1592,11 +1578,7 @@ class RepToolApp:
 
             self.last_results = results
 
-            # JSON output
-            if self.json_var.get():
-                ws("JSON Output")
-                json_out = {k: v for k, v in results.items() if k != "is_tor"}
-                wl(json.dumps(json_out, indent=2, default=str))
+
 
         except Exception as e:
             self.root.after(0, lambda: self._writeln(f"\nError: {e}", "danger"))

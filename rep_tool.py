@@ -8,7 +8,7 @@ Usage:
     python3 rep_tool.py 1.2.3.4
     python3 rep_tool.py evil-domain.com --report
     python3 rep_tool.py 10.0.0.1 --report --output /tmp/report.docx
-    python3 rep_tool.py suspicious.site.com --json --skip-ports
+    python3 rep_tool.py suspicious.site.com --skip-ports
 
 Supports: IP addresses and domain names
 Sources:  AlienVault OTX, AbuseIPDB, VirusTotal, Shodan, IPInfo,
@@ -547,7 +547,7 @@ Examples:
   python3 rep_tool.py 8.8.8.8
   python3 rep_tool.py 1.2.3.4 --report
   python3 rep_tool.py evil-domain.com --report --output /tmp/report.docx
-  python3 rep_tool.py 10.0.0.1 --json --skip-ports
+  python3 rep_tool.py 10.0.0.1 --skip-ports
   python3 rep_tool.py suspicious.site.com --skip-ports --analyst "John Doe"
 
 API Keys (optional, set via env vars or .env file):
@@ -565,8 +565,6 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
                         choices=["txt", "docx"], help="Report format: txt or docx (default: txt)")
     parser.add_argument("--output", "-o", type=str, default=None,
                         help="Output path for DOCX report")
-    parser.add_argument("--json", "-j", action="store_true",
-                        help="Output results as JSON")
     parser.add_argument("--skip-ports", action="store_true",
                         help="Skip port scanning (faster)")
     parser.add_argument("--skip-tor", action="store_true",
@@ -644,13 +642,6 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
                 except ImportError as e:
                     print(f"  Report generation skipped: {e}")
 
-        if args.json:
-            # Sanitize for JSON
-            json_out = []
-            for r in all_results:
-                r.pop("is_tor", None)
-                json_out.append(r)
-            print(json.dumps(json_out, indent=2, default=str))
 
         print(f"\n  Batch complete: {len(all_results)} target(s) investigated.\n")
         return
@@ -725,8 +716,6 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
             except Exception as e:
                 print(f"\n  {Colors.RED}Report error: {e}{Colors.RESET}\n")
 
-        if args.json:
-            print(json.dumps(all_results, indent=2, default=str))
         return
 
     # ── Single Target Mode ─────────────────────────────────────
@@ -743,10 +732,6 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
     if not args.quiet:
         print_full_report(results)
 
-    # JSON output
-    if args.json or args.quiet:
-        results.pop("is_tor", None)
-        print(json.dumps(results, indent=2, default=str))
 
     # Report generation
     if args.report:

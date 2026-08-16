@@ -33,7 +33,7 @@ python3 rep_tool.py 1.2.3.4 --report --format docx
 python3 rep_tool.py example.com --subdomains --report
 
 # Wildcard: scan a whole IP range
-python3 rep_tool.py -w '192.168.1.*' --skip-ports --json
+python3 rep_tool.py -w '192.168.1.*' --skip-ports
 
 # Ctrl+C to stop at any time
 ```
@@ -95,7 +95,6 @@ API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works f
 | **Bulk Analyze** | Queue multiple targets — all options work in all modes |
 | **STOP Button** | Cancel running analysis (GUI) or Ctrl+C (CLI) |
 | **TOR Detection** | Live TOR exit node list check |
-| **JSON Output** | Machine-readable output for SIEM/pipeline integration |
 
 ---
 
@@ -148,7 +147,7 @@ Bulk reports include a summary table + per-target detail pages + combined IOC ta
 
 ```
 usage: rep_tool.py [-h] [--report] [--format {txt,docx}] [--output OUTPUT]
-                   [--json] [--skip-ports] [--skip-tor] [--analyst ANALYST]
+                   [--skip-ports] [--skip-tor] [--analyst ANALYST]
                    [--classification CLASSIFICATION] [--quiet] [--batch BATCH]
                    [--subdomains] [--wildcard WILDCARD]
                    target
@@ -159,7 +158,6 @@ usage: rep_tool.py [-h] [--report] [--format {txt,docx}] [--output OUTPUT]
 | `--report` | `-r` | Generate report |
 | `--format {txt,docx}` | `-f` | Report format (default: txt) |
 | `--output OUTPUT` | `-o` | Custom output path |
-| `--json` | `-j` | JSON output |
 | `--skip-ports` | | Skip port scanning |
 | `--skip-tor` | | Skip TOR check |
 | `--subdomains` | `-s` | Enumerate + analyze all subdomains |
@@ -182,7 +180,7 @@ python3 rep_tool.py evil-domain.com --report -f docx
 python3 rep_tool.py example.com --subdomains --report
 
 # Wildcard IP range
-python3 rep_tool.py -w '10.0.0.0/24' --skip-ports --json
+python3 rep_tool.py -w '10.0.0.0/24' --skip-ports
 
 # Wildcard subdomain discovery
 python3 rep_tool.py -w '*.suspicious-domain.com' --report
