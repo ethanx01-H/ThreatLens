@@ -1,0 +1,958 @@
+THREATLENS - CURRENT VERSION FIX PLAN
+========================================
+
+Purpose
+-------
+This document contains the recommended fixes for the current ThreatLens version,
+with focus on export/reporting first, followed by logging, API handling, risk
+assessment, testing, and later SOC integrations.
+
+IMPORTANT:
+Do not change everything at once. Make one change, test it, then continue.
+
+============================================================
+1. CURRENT EXPORTS - PRIORITY
+============================================================
+
+Keep:
+  1. TXT  - Critical
+  2. DOCX - Critical
+  3. JSON - Critical
+
+Optional later:
+  4. CSV  - Medium
+  5. PDF  - Later
+  6. HTML - Later
+
+Do not build separate investigation logic inside each exporter.
+
+Recommended architecture:
+
+                    Investigation Engine
+                            |
+                            v
+                     Common Report Model
+                            |
+              +-------------+-------------+
+              |             |             |
+              v             v             v
+             TXT           DOCX          JSON
+          analyst view    formal SOC    automation
+
+
+============================================================
+2. TXT EXPORT - FIX FIRST
+============================================================
+
+Current issues to fix:
+
+[ ] Use ASCII-safe formatting instead of relying on Unicode symbols.
+    Replace:
+      ✓  -> [OK]
+      ✗  -> [!!]
+      ─  -> -
+      █/░ -> #/.
+
+[ ] Use consistent section headers.
+
+[ ] Add Investigation ID.
+
+[ ] Add generated timestamp.
+
+[ ] Add target and target type.
+
+[ ] Add Executive Summary.
+
+[ ] Add Risk Score.
+
+[ ] Add Classification.
+
+[ ] Add Assessment / Verdict.
+
+[ ] Add source coverage.
+
+[ ] Add confidence field (once confidence engine exists).
+
+[ ] Clearly distinguish source states:
+      CHECKED
+      NO MATCH
+      MATCH
+      NOT CONFIGURED
+      ERROR
+      RATE LIMITED
+      TIMEOUT
+      NOT RUN
+
+[ ] Do not treat every source error as "NOT CHECKED".
+
+[ ] Make long domains, URLs, banners, CVEs and other strings safe
+    so they cannot destroy fixed-width formatting.
+
+[ ] Improve detection rule formatting.
+
+[ ] Show successful zero-result sources explicitly.
+    Example:
+      ThreatFox
+        Status: NO MATCH
+        IOC Matches: 0
+
+[ ] Show VirusTotal Undetected count.
+
+[ ] Show URLhaus NO MATCH status instead of silently omitting it.
+
+[ ] Show ThreatFox NO MATCH status instead of silently omitting it.
+
+[ ] Add report integrity/footer information.
+
+Recommended TXT structure:
+
+THREATLENS INVESTIGATION REPORT
+============================================================
+
+INVESTIGATION
+------------------------------------------------------------
+Target:
+Target Type:
+Investigation ID:
+Generated:
+Classification:
+
+EXECUTIVE SUMMARY
+------------------------------------------------------------
+Risk Score:
+Assessment:
+Confidence:
+Sources Checked:
+Sources Failed:
+Sources Not Configured:
+
+SOURCE VERIFICATION
+------------------------------------------------------------
+[OK]  VirusTotal       CHECKED
+[OK]  AbuseIPDB        NO MATCH
+[OK]  ThreatFox        MATCH
+[--]  Shodan           NOT CONFIGURED
+
+TARGET INFORMATION
+------------------------------------------------------------
+
+RISK ASSESSMENT
+------------------------------------------------------------
+
+THREAT INTELLIGENCE
+------------------------------------------------------------
+
+DNS / WHOIS
+------------------------------------------------------------
+
+NETWORK RECONNAISSANCE
+------------------------------------------------------------
+
+SUBDOMAINS
+------------------------------------------------------------
+
+RELATED INDICATORS
+------------------------------------------------------------
+
+INVESTIGATION TIMELINE
+------------------------------------------------------------
+
+DETECTION RULES
+------------------------------------------------------------
+SIGMA
+ELASTIC KQL
+ELASTIC EQL
+SPLUNK
+JSON
+
+RECOMMENDED ACTIONS
+------------------------------------------------------------
+
+APPENDIX / RAW EVIDENCE
+------------------------------------------------------------
+
+REPORT INTEGRITY
+------------------------------------------------------------
+
+
+============================================================
+3. DOCX EXPORT - FORMAL SOC REPORT
+============================================================
+
+Make DOCX the professional investigation report.
+
+Recommended structure:
+
+[ ] Cover page
+    - ThreatLens
+    - Threat Intelligence Investigation Report
+    - Target
+    - Investigation ID
+    - Classification
+    - Generated date
+
+[ ] 1. Executive Summary
+
+[ ] 2. Target Information
+
+[ ] 3. Risk Assessment
+
+[ ] 4. Threat Intelligence
+
+[ ] 5. DNS / WHOIS
+
+[ ] 6. Network Reconnaissance
+
+[ ] 7. Subdomains
+
+[ ] 8. Related Indicators
+
+[ ] 9. Investigation Timeline
+
+[ ] 10. Detection Rules
+
+[ ] 11. Recommended Actions
+
+[ ] 12. Appendix / Raw Evidence
+
+
+DOCX Executive Summary should show:
+
+  Risk Score
+  Classification
+  Assessment / Verdict
+  Confidence
+  Intelligence Coverage
+  Malicious Signals
+  Mitigating Factors
+
+
+Threat intelligence should use a table:
+
+  Source | Status | Result | Details
+
+Example:
+
+  VirusTotal | CHECKED | MATCH | 5/92 detections
+  AbuseIPDB | CHECKED | NO MATCH | 0 reports
+  ThreatFox | MATCH | 2 IOCs | Malware family
+  URLhaus | CHECKED | NO MATCH | Not listed
+  OTX | CHECKED | MATCH | 3 pulses
+  Shodan | ERROR | - | Rate limited
+
+
+Detection rules should be separated:
+
+  10.1 SIGMA
+  10.2 ELASTIC KQL
+  10.3 ELASTIC EQL
+  10.4 SPLUNK
+  10.5 JSON
+
+
+Recommended Actions should depend on assessment/risk.
+
+HIGH example:
+  1. Search Elastic for historical sightings.
+  2. Identify affected hosts and users.
+  3. Review network connections.
+  4. Investigate related domains/hashes.
+  5. Consider blocking if malicious activity is confirmed.
+  6. Create/update detection rules.
+
+LOW example:
+  1. Continue monitoring.
+  2. No immediate blocking.
+  3. Re-evaluate if new intelligence appears.
+
+
+============================================================
+4. JSON EXPORT
+============================================================
+
+JSON should be machine-readable, not formatted like TXT/DOCX.
+
+Add a schema version.
+
+Recommended structure:
+
+{
+  "schema_version": "1.1",
+  "investigation": {
+    "id": "...",
+    "target": "...",
+    "type": "...",
+    "timestamp": "..."
+  },
+  "assessment": {
+    "score": 0,
+    "classification": "LOW",
+    "verdict": "UNKNOWN",
+    "confidence": 0
+  },
+  "sources": {},
+  "dns": {},
+  "whois": {},
+  "network": {},
+  "indicators": {},
+  "detections": {}
+}
+
+JSON will later be used for:
+  Elastic
+  SOAR
+  MISP
+  OpenCTI
+  APIs
+  Automation
+
+
+============================================================
+5. COMMON REPORT MODEL
+============================================================
+
+Important architectural fix:
+
+Do NOT make TXT, DOCX and JSON independently understand the
+investigation data.
+
+Create one common report model:
+
+  Investigation Engine
+          |
+          v
+    InvestigationReport
+          |
+    +-----+-----+
+    |     |     |
+    v     v     v
+   TXT   DOCX  JSON
+
+Example conceptual model:
+
+  report.target
+  report.target_type
+  report.investigation_id
+  report.timestamp
+  report.assessment
+  report.sources
+  report.dns
+  report.whois
+  report.network
+  report.indicators
+  report.detections
+  report.actions
+
+Then:
+
+  export_txt(report)
+  export_docx(report)
+  export_json(report)
+
+
+============================================================
+6. LOGGING SUBSYSTEM
+============================================================
+
+Logging must be configurable from BOTH:
+
+  GUI
+  CLI
+
+Both must use the SAME configuration.
+
+Recommended configuration:
+
+  ~/.threatlens/config.json
+
+Example:
+
+{
+  "logging": {
+    "enabled": true,
+    "level": "INFO",
+    "directory": "~/.threatlens/logs",
+    "rotation": "daily",
+    "max_size_mb": 10,
+    "retention_days": 7,
+    "console": true
+  }
+}
+
+GUI settings:
+
+  Enable Logging
+  Log Level
+  Log Location
+  Rotation
+  Maximum File Size
+  Retention Days
+  Console Logging
+  Debug Logging
+
+CLI examples:
+
+  threatlens config logging
+  threatlens config logging --level DEBUG
+  threatlens config logging --retention 14
+  threatlens config logging --max-size 20
+  threatlens config logging --rotation daily
+  threatlens config logging --disable
+  threatlens config logging --enable
+
+Recommended defaults:
+
+  Enabled:        Yes
+  Level:          INFO
+  Rotation:       Daily
+  Maximum Size:   10 MB
+  Retention:      7 days
+  Console:        Yes
+  Debug:          No
+
+Use rotating logging rather than unlimited files.
+
+Do not log:
+  - API keys
+  - secrets
+  - full API responses by default
+  - unnecessary sensitive data
+
+Application logs should contain operational events, not full investigation
+reports.
+
+
+============================================================
+7. API ERROR HANDLING
+============================================================
+
+Do not treat every API failure as None.
+
+Differentiate:
+
+  SUCCESS
+  NOT_FOUND
+  NO_API_KEY
+  RATE_LIMITED
+  UNAUTHORIZED
+  FORBIDDEN
+  TIMEOUT
+  SERVER_ERROR
+  NETWORK_ERROR
+  INVALID_RESPONSE
+
+Recommended result model:
+
+  source
+  status
+  data
+  error
+  http_status
+
+Example:
+
+  VirusTotal
+    Status: RATE LIMITED
+    HTTP: 429
+
+versus:
+
+  VirusTotal
+    Status: CHECKED
+    Result: NO MATCH
+
+These must not be treated as the same condition.
+
+
+============================================================
+8. RISK ENGINE FIX
+============================================================
+
+Major issue:
+
+Do NOT allow "known good" / whitelist logic to cap a score and
+override strong malicious evidence.
+
+Bad model:
+
+  Known Good
+      |
+      v
+  Cap score at 25
+
+Better:
+
+  Known Good
+      |
+      v
+  Reduce weak/contextual signals
+      |
+      v
+  Strong direct malicious evidence still wins
+
+Example:
+
+  Known-good infrastructure
+  + ThreatFox direct IOC
+  + URLhaus listing
+  + VT malicious detections
+  = potentially HIGH/CRITICAL
+
+Whitelist should reduce false positives, not override strong evidence.
+
+
+============================================================
+9. ADD OVERALL UNKNOWN VERDICT
+============================================================
+
+Individual source results can remain:
+
+  MALICIOUS
+  BENIGN
+  NOT CHECKED
+
+Overall investigation should become:
+
+  MALICIOUS
+  SUSPICIOUS
+  BENIGN
+  UNKNOWN
+
+Important:
+
+"No intelligence found" does NOT automatically mean "BENIGN".
+
+Example:
+
+  VT          CHECKED / CLEAN
+  AbuseIPDB   CHECKED / CLEAN
+  OTX         NO MATCH
+  ThreatFox   NOT CHECKED
+  URLhaus     NOT CHECKED
+
+Overall:
+  UNKNOWN
+
+This is safer for SOC investigations.
+
+
+============================================================
+10. ADD CONFIDENCE
+============================================================
+
+Separate:
+
+  Risk Score
+  Confidence
+  Coverage
+
+Example:
+
+  Risk Score:   87/100
+  Confidence:   94%
+  Coverage:     6/7 sources
+  Verdict:      MALICIOUS
+
+Another example:
+
+  Risk Score:   12/100
+  Confidence:   31%
+  Coverage:     2/7 sources
+  Verdict:      UNKNOWN
+
+Low risk + low confidence is NOT the same as low risk + high confidence.
+
+
+============================================================
+11. ADD SOURCE FRESHNESS
+============================================================
+
+For intelligence where timestamps are available, capture:
+
+  first_seen
+  last_seen
+  source_updated
+  observation_age
+  freshness
+
+Freshness levels:
+
+  HIGH
+  MEDIUM
+  LOW
+
+Fresh/current intelligence should have more influence than very old
+intelligence.
+
+
+============================================================
+12. DOMAIN MULTIPLE-IP FIX
+============================================================
+
+Current behavior should not investigate only the first resolved IP.
+
+Example:
+
+  example.com
+      |
+      +-- 1.1.1.1 -> investigate
+      +-- 2.2.2.2 -> investigate
+      +-- 3.3.3.3 -> investigate
+
+For each IP:
+  DNS
+  reputation
+  ports
+  HTTP/TLS
+  intelligence
+
+Then correlate results back to the domain.
+
+
+============================================================
+13. ACTIVE / PASSIVE RECON MODES
+============================================================
+
+Separate investigation modes.
+
+PASSIVE:
+
+  VirusTotal
+  OTX
+  AbuseIPDB
+  ThreatFox
+  URLhaus
+  Shodan
+  WHOIS
+  Passive DNS
+  Certificate transparency
+
+ACTIVE:
+
+  Port scanning
+  HTTP probing
+  Banner grabbing
+  DNS brute force
+
+Suggested CLI:
+
+  threatlens example.com --passive
+  threatlens example.com --active
+
+This makes the tool safer and clearer for enterprise SOC use.
+
+
+============================================================
+14. TESTING
+============================================================
+
+Create:
+
+  tests/
+    test_risk_engine.py
+    test_api_sources.py
+    test_dns_recon.py
+    test_input_validation.py
+    fixtures/
+
+Test:
+
+  [ ] Clean IOC
+  [ ] Malicious IOC
+  [ ] Unknown IOC
+  [ ] Known-good domain
+  [ ] Strong malicious evidence
+  [ ] Conflicting sources
+  [ ] Missing API keys
+  [ ] API timeout
+  [ ] HTTP 401
+  [ ] HTTP 403
+  [ ] HTTP 404
+  [ ] HTTP 429
+  [ ] Server error
+  [ ] Malformed API response
+  [ ] Multiple IPs
+  [ ] IPv6
+  [ ] Invalid domain
+  [ ] New domain
+  [ ] TOR IP
+
+Run:
+
+  pytest -v
+
+
+============================================================
+15. CI / SECURITY TESTING
+============================================================
+
+Add GitHub Actions:
+
+  .github/
+    workflows/
+      tests.yml
+      lint.yml
+      security.yml
+
+Run:
+
+  pytest
+  ruff
+  mypy (if adopted)
+  bandit
+  pip-audit
+
+Consider:
+
+  CodeQL
+  Dependabot
+  Gitleaks
+
+A security tool should demonstrate that its own code and dependencies
+are being checked.
+
+
+============================================================
+16. API KEY STORAGE
+============================================================
+
+Do not store API keys as plaintext JSON if avoidable.
+
+Prefer OS credential storage:
+
+  Windows -> Windows Credential Manager
+  Linux   -> Secret Service / keyring
+  macOS   -> Keychain
+
+Python option:
+
+  keyring
+
+GUI and CLI should use the same credential backend.
+
+
+============================================================
+17. PORT / SERVICE DETECTION
+============================================================
+
+Do not send the same HTTP HEAD request to every open TCP port.
+
+Use protocol-specific probes where appropriate:
+
+  21   FTP
+  22   SSH
+  25   SMTP
+  53   DNS
+  80   HTTP
+  443  HTTPS/TLS
+  445  SMB
+  6379 Redis
+  9200 Elasticsearch
+
+Output:
+
+  PORT  SERVICE        VERSION        EVIDENCE
+  22    SSH            OpenSSH        Banner
+  443   HTTPS          nginx          TLS/HTTP
+  9200  Elasticsearch  8.x            HTTP response
+
+
+============================================================
+18. FUTURE IOC TYPES
+============================================================
+
+After the current fixes are stable, add:
+
+  URL investigation
+  SHA256/MD5/SHA1 investigation
+  CVE investigation
+  Email/header investigation
+
+Recommended architecture:
+
+  ThreatLens
+    IP
+    Domain
+    URL
+    Hash
+    CVE
+    Email
+
+
+============================================================
+19. FUTURE SOC INTEGRATION
+============================================================
+
+After reliability and testing:
+
+  Elastic investigation
+  Historical IOC sightings
+  Affected hosts/users
+  Investigation timeline
+  MITRE ATT&CK mapping
+  STIX 2.1 export
+  MISP integration
+  OpenCTI integration
+  Case management
+
+
+============================================================
+20. FUTURE CASE MANAGEMENT
+============================================================
+
+Possible structure:
+
+  CASE-2026-00124
+    |
+    +-- Indicators
+    +-- Evidence
+    +-- Timeline
+    +-- Elastic sightings
+    +-- Threat intelligence
+    +-- MITRE ATT&CK
+    +-- Analyst notes
+    +-- Verdict
+    +-- Report
+
+
+============================================================
+21. RECOMMENDED IMPLEMENTATION ORDER
+============================================================
+
+DO NOT implement everything at once.
+
+Phase 1 - Current export reliability
+--------------------------------------
+  1. Backup / Git branch
+  2. Baseline investigation
+  3. Fix TXT exporter
+  4. Fix DOCX exporter
+  5. Verify TXT and DOCX use the same data
+  6. Fix JSON schema/version
+
+Phase 2 - Logging
+-----------------
+  7. Build logging manager
+  8. GUI logging settings
+  9. CLI logging settings
+  10. Daily rotation
+  11. Maximum size
+  12. Retention
+  13. Secure handling of sensitive values
+
+Phase 3 - Intelligence reliability
+-----------------------------------
+  14. API error states
+  15. Risk engine whitelist fix
+  16. UNKNOWN verdict
+  17. Confidence
+  18. Source coverage
+  19. Freshness
+
+Phase 4 - Recon reliability
+---------------------------
+  20. Multiple IP investigation
+  21. Active/passive modes
+  22. Service-specific probes
+
+Phase 5 - Testing/security
+--------------------------
+  23. Unit tests
+  24. Fixtures
+  25. GitHub Actions
+  26. Bandit
+  27. pip-audit
+  28. Gitleaks
+  29. CodeQL / Dependabot
+
+Phase 6 - New capabilities
+--------------------------
+  30. URL investigation
+  31. Hash investigation
+  32. CVE investigation
+  33. Email investigation
+  34. MITRE ATT&CK
+  35. STIX 2.1
+
+Phase 7 - SOC integration
+-------------------------
+  36. Elastic historical sightings
+  37. Elastic timeline
+  38. MISP
+  39. OpenCTI
+  40. Case management
+
+
+============================================================
+22. IMMEDIATE TASK
+============================================================
+
+START WITH EXPORTS.
+
+Do NOT change risk scoring yet.
+
+First:
+
+  1. Fix TXT output.
+  2. Test TXT with a real investigation.
+  3. Fix DOCX output.
+  4. Test DOCX with the same investigation.
+  5. Compare TXT and DOCX.
+  6. Fix JSON structure.
+  7. Commit the export changes.
+
+Suggested Git commits:
+
+  fix: improve txt investigation report
+  fix: improve docx investigation report
+  fix: standardize json report schema
+
+After exports are stable:
+
+  feat: configurable logging subsystem
+
+Then continue to API error handling and risk-engine improvements.
+
+
+============================================================
+23. FINAL TARGET
+============================================================
+
+ThreatLens should eventually provide:
+
+  Investigation
+       |
+       v
+  Normalization
+       |
+       v
+  Multi-source enrichment
+       |
+       v
+  Evidence correlation
+       |
+       +--> Risk Score
+       +--> Confidence
+       +--> Coverage
+       +--> Verdict
+       |
+       v
+  Common Report Model
+       |
+       +--> TXT
+       +--> DOCX
+       +--> JSON
+       |
+       v
+  SOC integrations
+       |
+       +--> Elastic
+       +--> MITRE ATT&CK
+       +--> STIX
+       +--> MISP
+       +--> OpenCTI
+       +--> SOAR
+
+The main goal is to make ThreatLens a reliable SOC L3 investigation and
+detection-engineering component, rather than simply a collection of OSINT
+lookups.

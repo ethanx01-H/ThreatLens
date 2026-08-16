@@ -52,17 +52,43 @@ def _is_known_good(target: str, ipinfo: dict = None, recon: dict = None) -> tupl
 
 
 def _get_source_status(source_data: dict) -> str:
-    """Determine if a source was checked, returned clean, or not checked."""
+    """Determine detailed source status using the status field from api_sources.
+
+    Returns one of: SUCCESS, NOT_FOUND, NO_API_KEY, RATE_LIMITED,
+    UNAUTHORIZED, FORBIDDEN, TIMEOUT, SERVER_ERROR, NETWORK_ERROR,
+    INVALID_RESPONSE, NOT CHECKED
+    """
     if source_data is None:
         return "NOT CHECKED"
+    # Use the new status field if available
+    status = source_data.get("status")
+    if status and status != "SUCCESS":
+        return status
     if source_data.get("error"):
+        # Fallback: try to infer from error message
+        err = source_data["error"].lower()
+        if "no api key" in err or "no_api_key" in err:
+            return "NO_API_KEY"
+        if "rate" in err:
+            return "RATE_LIMITED"
+        if "timeout" in err:
+            return "TIMEOUT"
+        if "unauthorized" in err or "401" in err:
+            return "UNAUTHORIZED"
+        if "forbidden" in err or "403" in err:
+            return "FORBIDDEN"
         return "NOT CHECKED"
-    return "CHECKED"
+    return "SUCCESS"
+
+
+def _is_source_checked(status: str) -> bool:
+    """Return True if the source actually returned useful data (not an error)."""
+    return status == "SUCCESS" or status == "NOT_FOUND"
 
 
 def _get_not_checked_sources(ipinfo=None, otx=None, abuseipdb=None, vt=None,
                               shodan=None, threatfox=None, urlhaus=None) -> List[str]:
-    """Return list of sources that were NOT checked."""
+    """Return list of sources that were NOT checked (had errors, not just empty)."""
     not_checked = []
     sources = {
         "VirusTotal": vt,
@@ -70,11 +96,26 @@ def _get_not_checked_sources(ipinfo=None, otx=None, abuseipdb=None, vt=None,
         "Shodan": shodan,
         "ThreatFox": threatfox,
         "URLhaus": urlhaus,
+        "OTX": otx,
+        "IPInfo": ipinfo,
     }
     for name, data in sources.items():
-        if _get_source_status(data) == "NOT CHECKED":
-            not_checked.append(name)
+        status = _get_source_status(data)
+        if not _is_source_checked(status):
+            not_checked.append(f"{name} ({status})")
     return not_checked
+
+
+def _calculate_coverage(source_statuses: dict) -> tuple:
+    """Calculate source coverage as (checked, total) and percentage.
+
+    Returns (checked_count, total_count, percentage).
+    """
+    total = len(source_statuses)
+    if total == 0:
+        return 0, 0, 0.0
+    checked = sum(1 for s in source_statuses.values() if _is_source_checked(s))
+    return checked, total, round((checked / total) * 100, 1)
 
 
 def calculate_ip_risk(
@@ -441,11 +482,32 @@ def calculate_ip_risk(
 
     if is_good:
         mitigations.append(f"Known-good indicator: {good_reason}")
-        # Cap the score for known-good domains
-        if score > 25:
-            original_score = score
-            score = min(score, 25)
-            mitigations.append(f"Score capped from {original_score} to {score} due to known-good status")
+        # Don't cap the score at 25. Instead, reduce only weak/contextual signals.
+        # Strong direct malicious evidence (VT detections, ThreatFox IOC, URLhaus)
+        # should still count even for known-good domains.
+        # Zero out TIER 3 (weak/contextual) signals for known-good targets.
+        weak_reduction = 0
+        filtered_signals = []
+        for sig in signals:
+            if sig.get("tier", 3) == 3 and sig["weight"] > 0:
+                weak_reduction += sig["weight"]
+                # Keep the signal but with weight 0 (informational)
+                sig_copy = dict(sig)
+                sig_copy["weight"] = 0
+                sig_copy["severity"] = "INFO"
+                sig_copy["interpretation"] = (
+                    "Suppressed — known-good indicator, weak contextual signal"
+                )
+                filtered_signals.append(sig_copy)
+            else:
+                filtered_signals.append(sig)
+        signals = filtered_signals
+        score = max(0, score - weak_reduction)
+        if weak_reduction > 0:
+            mitigations.append(
+                f"Reduced {weak_reduction} points from weak/contextual signals "
+                f"due to known-good status (strong evidence preserved)"
+            )
 
     # ─── AbuseIPDB zero reports on known infrastructure ────────
     if abuseipdb and not abuseipdb.get("error"):
@@ -463,8 +525,15 @@ def calculate_ip_risk(
     score = max(0, score)
     score = min(score, 100)
 
+    # ─── Coverage and Confidence ───────────────────────────────
+    checked_count, total_count, coverage_pct = _calculate_coverage(source_statuses)
+
     # ─── Classification ────────────────────────────────────────
-    if score >= RISK_THRESHOLDS["CRITICAL"]:
+    # If most sources are NOT CHECKED, verdict should be UNKNOWN not LOW
+    UNKNOWN_THRESHOLD = 40  # below this coverage %, verdict is UNKNOWN
+    if coverage_pct < UNKNOWN_THRESHOLD and not signals:
+        classification = "UNKNOWN"
+    elif score >= RISK_THRESHOLDS["CRITICAL"]:
         classification = "CRITICAL"
     elif score >= RISK_THRESHOLDS["HIGH"]:
         classification = "HIGH"
@@ -493,6 +562,12 @@ def calculate_ip_risk(
         "not_checked_sources": not_checked,
         "is_known_good": is_good,
         "known_good_reason": good_reason,
+        "coverage": {
+            "checked": checked_count,
+            "total": total_count,
+            "percentage": coverage_pct,
+        },
+        "confidence": coverage_pct,  # confidence = coverage for now
     }
 
 
@@ -698,10 +773,28 @@ def calculate_domain_risk(
 
     if is_good:
         mitigations.append(f"Known-good indicator: {good_reason}")
-        if score > 25:
-            original_score = score
-            score = min(score, 25)
-            mitigations.append(f"Score capped from {original_score} to {score} due to known-good status")
+        # Don't cap score at 25 — reduce only weak/contextual signals
+        weak_reduction = 0
+        filtered_signals = []
+        for sig in signals:
+            if sig.get("tier", 3) == 3 and sig["weight"] > 0:
+                weak_reduction += sig["weight"]
+                sig_copy = dict(sig)
+                sig_copy["weight"] = 0
+                sig_copy["severity"] = "INFO"
+                sig_copy["interpretation"] = (
+                    "Suppressed — known-good indicator, weak contextual signal"
+                )
+                filtered_signals.append(sig_copy)
+            else:
+                filtered_signals.append(sig)
+        signals = filtered_signals
+        score = max(0, score - weak_reduction)
+        if weak_reduction > 0:
+            mitigations.append(
+                f"Reduced {weak_reduction} points from weak/contextual signals "
+                f"due to known-good status (strong evidence preserved)"
+            )
 
     if vt and not vt.get("error"):
         if vt.get("malicious", 0) == 0 and vt.get("suspicious", 0) == 0:
@@ -712,7 +805,14 @@ def calculate_domain_risk(
     score = max(0, score)
     score = min(score, 100)
 
-    if score >= RISK_THRESHOLDS["CRITICAL"]:
+    # ─── Coverage and Confidence ───────────────────────────────
+    checked_count, total_count, coverage_pct = _calculate_coverage(source_statuses)
+
+    # ─── Classification ────────────────────────────────────────
+    UNKNOWN_THRESHOLD = 40
+    if coverage_pct < UNKNOWN_THRESHOLD and not signals:
+        classification = "UNKNOWN"
+    elif score >= RISK_THRESHOLDS["CRITICAL"]:
         classification = "CRITICAL"
     elif score >= RISK_THRESHOLDS["HIGH"]:
         classification = "HIGH"
@@ -735,6 +835,12 @@ def calculate_domain_risk(
         "not_checked_sources": not_checked,
         "is_known_good": is_good,
         "known_good_reason": good_reason,
+        "coverage": {
+            "checked": checked_count,
+            "total": total_count,
+            "percentage": coverage_pct,
+        },
+        "confidence": coverage_pct,
     }
 
 
@@ -784,6 +890,11 @@ def _get_recommended_actions(classification: str, signals: list, is_known_good: 
         if has_ports:
             actions.append("Note open ports — may be legitimate service")
 
+    if classification == "UNKNOWN":
+        actions.insert(0, "INSUFFICIENT DATA: Configure API keys for key sources")
+        actions.append("Re-run analysis after configuring missing API keys")
+        actions.append("Do not make blocking decisions based on UNKNOWN verdict")
+
     return actions
 
 
@@ -794,6 +905,7 @@ def get_risk_badge(classification: str) -> str:
         "HIGH":     "\033[97;43m   HIGH   \033[0m",
         "MEDIUM":   "\033[30;43m  MEDIUM  \033[0m",
         "LOW":      "\033[97;42m   LOW    \033[0m",
+        "UNKNOWN":  "\033[30;100m UNKNOWN  \033[0m",
     }
     return badges.get(classification, classification)
 
@@ -805,5 +917,6 @@ def get_risk_color_hex(classification: str) -> str:
         "HIGH":     "E67E22",
         "MEDIUM":   "F1C40F",
         "LOW":      "27AE60",
+        "UNKNOWN":  "95A5A6",
     }
     return colors.get(classification, "95A5A6")

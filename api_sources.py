@@ -14,48 +14,107 @@ import config as cfg
 # so GUI hot-reload works without restarting.
 
 
+# ─── Status Codes ──────────────────────────────────────────────────
+# Used by query functions to report the outcome of each API call.
+# Consumers (risk_engine, report_gen) use these to differentiate
+# "no API key" from "rate limited" from "server error", etc.
+
+class SourceStatus:
+    """Enum-like constants for source query status."""
+    SUCCESS = "SUCCESS"
+    NOT_FOUND = "NOT_FOUND"
+    NO_API_KEY = "NO_API_KEY"
+    RATE_LIMITED = "RATE_LIMITED"
+    UNAUTHORIZED = "UNAUTHORIZED"
+    FORBIDDEN = "FORBIDDEN"
+    TIMEOUT = "TIMEOUT"
+    SERVER_ERROR = "SERVER_ERROR"
+    NETWORK_ERROR = "NETWORK_ERROR"
+    INVALID_RESPONSE = "INVALID_RESPONSE"
+
+
+def _classify_http_error(status_code: int) -> str:
+    """Map HTTP status code to a SourceStatus constant."""
+    if status_code == 401:
+        return SourceStatus.UNAUTHORIZED
+    elif status_code == 403:
+        return SourceStatus.FORBIDDEN
+    elif status_code == 404:
+        return SourceStatus.NOT_FOUND
+    elif status_code == 429:
+        return SourceStatus.RATE_LIMITED
+    elif 500 <= status_code < 600:
+        return SourceStatus.SERVER_ERROR
+    return SourceStatus.INVALID_RESPONSE
+
+
 def _get(url: str, headers: dict = None, params: dict = None,
-         timeout: int = cfg.HTTP_TIMEOUT) -> Optional[dict]:
-    """HTTP GET with retry logic."""
+         timeout: int = cfg.HTTP_TIMEOUT) -> tuple:
+    """HTTP GET with retry logic. Returns (data, status_code_or_None)."""
+    last_status = None
     for attempt in range(cfg.MAX_RETRIES + 1):
         try:
             resp = requests.get(url, headers=headers, params=params,
                                 timeout=timeout)
             if resp.status_code == 200:
-                return resp.json()
+                try:
+                    return resp.json(), 200
+                except json.JSONDecodeError:
+                    return None, SourceStatus.INVALID_RESPONSE
             elif resp.status_code == 429:
+                last_status = 429
                 time.sleep(2 ** attempt)
                 continue
             else:
-                return None
-        except (requests.RequestException, json.JSONDecodeError):
+                return None, resp.status_code
+        except requests.Timeout:
+            last_status = SourceStatus.TIMEOUT
             if attempt < cfg.MAX_RETRIES:
                 time.sleep(1)
             else:
-                return None
-    return None
+                return None, SourceStatus.TIMEOUT
+        except requests.RequestException:
+            last_status = SourceStatus.NETWORK_ERROR
+            if attempt < cfg.MAX_RETRIES:
+                time.sleep(1)
+            else:
+                return None, SourceStatus.NETWORK_ERROR
+    # Exhausted retries on 429
+    return None, last_status or SourceStatus.RATE_LIMITED
 
 
 def _post(url: str, data: dict = None, json_body: dict = None,
-          headers: dict = None, timeout: int = cfg.HTTP_TIMEOUT) -> Optional[dict]:
-    """HTTP POST with retry logic."""
+          headers: dict = None, timeout: int = cfg.HTTP_TIMEOUT) -> tuple:
+    """HTTP POST with retry logic. Returns (data, status_code_or_None)."""
+    last_status = None
     for attempt in range(cfg.MAX_RETRIES + 1):
         try:
             resp = requests.post(url, data=data, json=json_body,
                                  headers=headers, timeout=timeout)
             if resp.status_code == 200:
-                return resp.json()
+                try:
+                    return resp.json(), 200
+                except json.JSONDecodeError:
+                    return None, SourceStatus.INVALID_RESPONSE
             elif resp.status_code == 429:
+                last_status = 429
                 time.sleep(2 ** attempt)
                 continue
             else:
-                return None
-        except (requests.RequestException, json.JSONDecodeError):
+                return None, resp.status_code
+        except requests.Timeout:
+            last_status = SourceStatus.TIMEOUT
             if attempt < cfg.MAX_RETRIES:
                 time.sleep(1)
             else:
-                return None
-    return None
+                return None, SourceStatus.TIMEOUT
+        except requests.RequestException:
+            last_status = SourceStatus.NETWORK_ERROR
+            if attempt < cfg.MAX_RETRIES:
+                time.sleep(1)
+            else:
+                return None, SourceStatus.NETWORK_ERROR
+    return None, last_status or SourceStatus.RATE_LIMITED
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -281,10 +340,12 @@ def query_abuseipdb(ip: str) -> Dict[str, Any]:
         "country_code": "",
         "usage_type": "",
         "error": None,
+        "status": SourceStatus.SUCCESS,
     }
 
     if not cfg.ABUSEIPDB_KEY:
         result["error"] = "No AbuseIPDB API key configured"
+        result["status"] = SourceStatus.NO_API_KEY
         return result
 
     headers = {
@@ -297,7 +358,7 @@ def query_abuseipdb(ip: str) -> Dict[str, Any]:
         "verbose": "",
     }
 
-    data = _get(f"{cfg.ABUSEIPDB_BASE}/check", headers=headers, params=params)
+    data, resp = _get(f"{cfg.ABUSEIPDB_BASE}/check", headers=headers, params=params)
     if data and "data" in data:
         d = data["data"]
         result["abuse_confidence_score"] = d.get("abuseConfidenceScore", 0)
@@ -311,7 +372,13 @@ def query_abuseipdb(ip: str) -> Dict[str, Any]:
         result["country_code"] = d.get("countryCode", "")
         result["usage_type"] = d.get("usageType", "")
     else:
-        result["error"] = "Failed to query AbuseIPDB"
+        if isinstance(resp, int):
+            result["status"] = _classify_http_error(resp)
+        elif isinstance(resp, str):
+            result["status"] = resp
+        else:
+            result["status"] = SourceStatus.INVALID_RESPONSE
+        result["error"] = f"Failed to query AbuseIPDB ({result['status']})"
 
     return result
 
@@ -340,14 +407,16 @@ def query_virustotal_ip(ip: str) -> Dict[str, Any]:
         "whois": "",
         "last_modification_date": "",
         "error": None,
+        "status": SourceStatus.SUCCESS,
     }
 
     if not cfg.VIRUSTOTAL_KEY:
         result["error"] = "No VirusTotal API key configured"
+        result["status"] = SourceStatus.NO_API_KEY
         return result
 
     headers = {"x-apikey": cfg.VIRUSTOTAL_KEY}
-    data = _get(f"{cfg.VIRUSTOTAL_BASE}/ip_addresses/{ip}", headers=headers)
+    data, resp = _get(f"{cfg.VIRUSTOTAL_BASE}/ip_addresses/{ip}", headers=headers)
 
     if data and "data" in data:
         attrs = data["data"].get("attributes", {})
@@ -367,7 +436,13 @@ def query_virustotal_ip(ip: str) -> Dict[str, Any]:
         result["whois"] = attrs.get("whois", "")
         result["last_modification_date"] = attrs.get("last_modification_date", "")
     else:
-        result["error"] = "Failed to query VirusTotal"
+        if isinstance(resp, int):
+            result["status"] = _classify_http_error(resp)
+        elif isinstance(resp, str):
+            result["status"] = resp
+        else:
+            result["status"] = SourceStatus.INVALID_RESPONSE
+        result["error"] = f"Failed to query VirusTotal ({result['status']})"
 
     return result
 
@@ -389,14 +464,16 @@ def query_virustotal_domain(domain: str) -> Dict[str, Any]:
         "categories": {},
         "last_dns_records": [],
         "error": None,
+        "status": SourceStatus.SUCCESS,
     }
 
     if not cfg.VIRUSTOTAL_KEY:
         result["error"] = "No VirusTotal API key configured"
+        result["status"] = SourceStatus.NO_API_KEY
         return result
 
     headers = {"x-apikey": cfg.VIRUSTOTAL_KEY}
-    data = _get(f"{cfg.VIRUSTOTAL_BASE}/domains/{domain}", headers=headers)
+    data, resp = _get(f"{cfg.VIRUSTOTAL_BASE}/domains/{domain}", headers=headers)
 
     if data and "data" in data:
         attrs = data["data"].get("attributes", {})
@@ -413,7 +490,13 @@ def query_virustotal_domain(domain: str) -> Dict[str, Any]:
         result["categories"] = attrs.get("categories", {})
         result["last_dns_records"] = attrs.get("last_dns_records", [])[:20]
     else:
-        result["error"] = "Failed to query VirusTotal for domain"
+        if isinstance(resp, int):
+            result["status"] = _classify_http_error(resp)
+        elif isinstance(resp, str):
+            result["status"] = resp
+        else:
+            result["status"] = SourceStatus.INVALID_RESPONSE
+        result["error"] = f"Failed to query VirusTotal for domain ({result['status']})"
 
     return result
 
@@ -440,14 +523,16 @@ def query_shodan(ip: str) -> Dict[str, Any]:
         "tags": [],
         "cpes": [],
         "error": None,
+        "status": SourceStatus.SUCCESS,
     }
 
     if not cfg.SHODAN_KEY:
         result["error"] = "No Shodan API key configured"
+        result["status"] = SourceStatus.NO_API_KEY
         return result
 
     params = {"key": cfg.SHODAN_KEY}
-    data = _get(f"{cfg.SHODAN_BASE}/shodan/host/{ip}", params=params)
+    data, resp = _get(f"{cfg.SHODAN_BASE}/shodan/host/{ip}", params=params)
 
     if data:
         result["ports"] = data.get("ports", [])
@@ -471,7 +556,13 @@ def query_shodan(ip: str) -> Dict[str, Any]:
                 result["cpes"].append(cpes)
         result["cpes"] = list(set(result["cpes"]))[:20]
     else:
-        result["error"] = "Failed to query Shodan"
+        if isinstance(resp, int):
+            result["status"] = _classify_http_error(resp)
+        elif isinstance(resp, str):
+            result["status"] = resp
+        else:
+            result["status"] = SourceStatus.INVALID_RESPONSE
+        result["error"] = f"Failed to query Shodan ({result['status']})"
 
     return result
 
@@ -488,10 +579,11 @@ def query_threatfox(indicator: str, ioc_type: str = "ip:port") -> Dict[str, Any]
         "ioc_count": 0,
         "iocs": [],
         "error": None,
+        "status": SourceStatus.SUCCESS,
     }
 
     payload = {"query": "search_ioc", "search_term": indicator}
-    data = _post(cfg.THREATFOX_BASE, json_body=payload)
+    data, resp = _post(cfg.THREATFOX_BASE, json_body=payload)
 
     if data and data.get("query_status") == "ok":
         for ioc in data.get("data", [])[:15]:
@@ -510,8 +602,15 @@ def query_threatfox(indicator: str, ioc_type: str = "ip:port") -> Dict[str, Any]
         result["ioc_count"] = len(result["iocs"])
     elif data and data.get("query_status") == "no_result":
         result["ioc_count"] = 0
+        result["status"] = SourceStatus.NOT_FOUND
     else:
-        result["error"] = "Failed to query ThreatFox"
+        if isinstance(resp, int):
+            result["status"] = _classify_http_error(resp)
+        elif isinstance(resp, str):
+            result["status"] = resp
+        else:
+            result["status"] = SourceStatus.INVALID_RESPONSE
+        result["error"] = f"Failed to query ThreatFox ({result['status']})"
 
     return result
 
@@ -535,9 +634,10 @@ def query_urlhaus_host(host: str) -> Dict[str, Any]:
         "last_online": "",
         "urls": [],
         "error": None,
+        "status": SourceStatus.SUCCESS,
     }
 
-    data = _post(cfg.URLHAUS_BASE + "/host/", data={"host": host})
+    data, resp = _post(cfg.URLHAUS_BASE + "/host/", data={"host": host})
 
     if data:
         result["is_listed"] = data.get("query_status") == "ok"
@@ -558,7 +658,13 @@ def query_urlhaus_host(host: str) -> Dict[str, Any]:
                 "tags": u.get("tags", []),
             })
     else:
-        result["error"] = "Failed to query URLhaus"
+        if isinstance(resp, int):
+            result["status"] = _classify_http_error(resp)
+        elif isinstance(resp, str):
+            result["status"] = resp
+        else:
+            result["status"] = SourceStatus.INVALID_RESPONSE
+        result["error"] = f"Failed to query URLhaus ({result['status']})"
 
     return result
 

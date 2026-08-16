@@ -339,6 +339,95 @@ def generate_report(
     _add_styled_paragraph(doc, "4. Threat Intelligence Findings", bold=True, size=Pt(16),
                           color=RGBColor(0, 0x33, 0x66))
 
+    # ─── 4.0 Threat Intelligence Summary Table ────────────────
+    _add_styled_paragraph(doc, "4.0 Source Summary", bold=True, size=Pt(13),
+                          color=RGBColor(0, 0x55, 0x99))
+
+    ti_rows = []
+    # OTX
+    if otx and not otx.get("error"):
+        pc = otx.get("pulse_count", 0)
+        ti_rows.append(("AlienVault OTX", "MATCH" if pc > 0 else "NO MATCH",
+                        f"{pc} pulse(s)", f"Malware: {otx.get('malware_count', 0)}, URLs: {otx.get('url_count', 0)}"))
+    else:
+        ti_rows.append(("AlienVault OTX", otx.get("status", "NOT RUN") if otx else "NOT RUN", "-", ""))
+
+    # AbuseIPDB
+    if abuseipdb and not abuseipdb.get("error"):
+        acs = abuseipdb.get("abuse_confidence_score", 0)
+        ti_rows.append(("AbuseIPDB", "MATCH" if acs > 0 else "NO MATCH",
+                        f"{acs}%", f"Reports: {abuseipdb.get('total_reports', 0)}"))
+    else:
+        ti_rows.append(("AbuseIPDB", abuseipdb.get("status", "NOT RUN") if abuseipdb else "NOT RUN", "-", ""))
+
+    # VirusTotal
+    if vt and not vt.get("error"):
+        mal = vt.get("malicious", 0)
+        sus = vt.get("suspicious", 0)
+        total = mal + sus + vt.get("harmless", 0) + vt.get("undetected", 0)
+        status_vt = "MATCH" if mal > 0 else ("SUSPICIOUS" if sus > 0 else "NO MATCH")
+        ti_rows.append(("VirusTotal", status_vt,
+                        f"{mal}/{total} detections", f"Undetected: {vt.get('undetected', 0)}"))
+    else:
+        ti_rows.append(("VirusTotal", vt.get("status", "NOT RUN") if vt else "NOT RUN", "-", ""))
+
+    # Shodan
+    if shodan and not shodan.get("error"):
+        ports = shodan.get("ports", [])
+        vulns = shodan.get("vulns", [])
+        ti_rows.append(("Shodan", "MATCH" if ports else "NO MATCH",
+                        f"{len(ports)} port(s)", f"CVEs: {len(vulns)}"))
+    else:
+        ti_rows.append(("Shodan", shodan.get("status", "NOT RUN") if shodan else "NOT RUN", "-", ""))
+
+    # ThreatFox
+    if threatfox and not threatfox.get("error"):
+        ioc_count = threatfox.get("ioc_count", 0)
+        ti_rows.append(("ThreatFox", "MATCH" if ioc_count > 0 else "NO MATCH",
+                        f"{ioc_count} IOC(s)", ""))
+    else:
+        ti_rows.append(("ThreatFox", threatfox.get("status", "NOT RUN") if threatfox else "NOT RUN", "-", ""))
+
+    # URLhaus
+    if urlhaus and not urlhaus.get("error"):
+        is_listed = urlhaus.get("is_listed", False)
+        ti_rows.append(("URLhaus", "MATCH" if is_listed else "NO MATCH",
+                        f"URLs: {urlhaus.get('url_count', 0)}", f"Threat: {urlhaus.get('threat', 'N/A')}"))
+    else:
+        ti_rows.append(("URLhaus", urlhaus.get("status", "NOT RUN") if urlhaus else "NOT RUN", "-", ""))
+
+    # Coverage
+    coverage = risk_assessment.get("coverage", {})
+    if coverage:
+        ti_rows.append(("Coverage", "-",
+                        f"{coverage.get('checked', 0)}/{coverage.get('total', 0)}",
+                        f"{coverage.get('percentage', 0)}% confidence"))
+
+    ti_table = doc.add_table(rows=len(ti_rows) + 1, cols=4, style='Light Shading Accent 1')
+    ti_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for j, h in enumerate(["Source", "Status", "Result", "Details"]):
+        _ct(ti_table.rows[0].cells[j], h, bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+        _set_cell_shading(ti_table.rows[0].cells[j], "003366")
+
+    for i, (src, status, result, details) in enumerate(ti_rows):
+        row = ti_table.rows[i + 1]
+        _ct(row.cells[0], src, bold=True, size=Pt(9))
+        _ct(row.cells[1], status, size=Pt(9))
+        _ct(row.cells[2], result, size=Pt(9))
+        _ct(row.cells[3], details, size=Pt(9))
+        # Color the status cell
+        if status == "MATCH":
+            _set_cell_shading(row.cells[1], "E74C3C")
+            _ct(row.cells[1], status, bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+        elif status == "NO MATCH":
+            _set_cell_shading(row.cells[1], "27AE60")
+            _ct(row.cells[1], status, bold=True, size=Pt(9), color=RGBColor(255, 255, 255))
+        elif status == "SUSPICIOUS":
+            _set_cell_shading(row.cells[1], "F1C40F")
+            _ct(row.cells[1], status, bold=True, size=Pt(9))
+
+    doc.add_paragraph()
+
     # OTX findings
     if otx and not otx.get("error"):
         _add_styled_paragraph(doc, "4.1 AlienVault OTX", bold=True, size=Pt(13),
@@ -433,24 +522,31 @@ def generate_report(
             _ct(sh_table.rows[i].cells[1], str(v), size=Pt(9))
 
     # ThreatFox findings
-    if threatfox and not threatfox.get("error") and threatfox.get("ioc_count", 0) > 0:
+    if threatfox and not threatfox.get("error"):
         _add_styled_paragraph(doc, "4.5 ThreatFox (abuse.ch)", bold=True, size=Pt(13),
                               color=RGBColor(0, 0x55, 0x99))
-        _add_styled_paragraph(doc, f"IOC Associations: {threatfox.get('ioc_count', 0)}", size=Pt(10))
-        for ioc in threatfox.get("iocs", [])[:5]:
-            _add_styled_paragraph(doc, f"  - {ioc.get('malware', 'Unknown')} "
-                                  f"(Type: {ioc.get('threat_type', 'N/A')}, "
-                                  f"Confidence: {ioc.get('confidence', 0)}%)",
-                                  size=Pt(9))
+        ioc_count = threatfox.get("ioc_count", 0)
+        if ioc_count > 0:
+            _add_styled_paragraph(doc, f"IOC Associations: {ioc_count}", size=Pt(10))
+            for ioc in threatfox.get("iocs", [])[:5]:
+                _add_styled_paragraph(doc, f"  - {ioc.get('malware', 'Unknown')} "
+                                      f"(Type: {ioc.get('threat_type', 'N/A')}, "
+                                      f"Confidence: {ioc.get('confidence', 0)}%)",
+                                      size=Pt(9))
+        else:
+            _add_styled_paragraph(doc, "Status: NO MATCH — 0 IOC associations found", size=Pt(10))
 
     # URLhaus findings
-    if urlhaus and not urlhaus.get("error") and urlhaus.get("is_listed"):
+    if urlhaus and not urlhaus.get("error"):
         _add_styled_paragraph(doc, "4.6 URLhaus (abuse.ch)", bold=True, size=Pt(13),
                               color=RGBColor(0, 0x55, 0x99))
-        _add_styled_paragraph(doc, f"LISTED — Threat: {urlhaus.get('threat', 'N/A')} | "
-                              f"URLs: {urlhaus.get('url_count', 0)} "
-                              f"(Online: {urlhaus.get('urls_online', 0)})",
-                              size=Pt(10), bold=True)
+        if urlhaus.get("is_listed"):
+            _add_styled_paragraph(doc, f"MATCH — Threat: {urlhaus.get('threat', 'N/A')} | "
+                                  f"URLs: {urlhaus.get('url_count', 0)} "
+                                  f"(Online: {urlhaus.get('urls_online', 0)})",
+                                  size=Pt(10), bold=True)
+        else:
+            _add_styled_paragraph(doc, "Status: NO MATCH — Not listed in URLhaus", size=Pt(10))
 
     doc.add_page_break()
 
@@ -737,7 +833,8 @@ def generate_txt_report(
     analyst: str = "Threat Intel Analyst",
     classification: str = "CONFIDENTIAL",
 ) -> str:
-    """Generate a plain-text threat intelligence report."""
+    """Generate a plain-text threat intelligence report (ASCII only)."""
+    from hashlib import sha256
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     report_id = f"TI-{datetime.now().strftime('%Y%m%d')}-{target.replace('.', '-').replace(':', '-')}"
     risk = risk_assessment
@@ -755,7 +852,7 @@ def generate_txt_report(
 
     def sec(title):
         ln()
-        ln(f"--- {title} {'─' * (W - len(title) - 6)}")
+        ln(f"--- {title} " + "-" * (W - len(title) - 6))
         ln()
 
     def kv(key, value):
@@ -763,7 +860,7 @@ def generate_txt_report(
 
     def bar(label, value, max_val=100, width=35):
         filled = int(width * value / max_val) if max_val > 0 else 0
-        ln(f"  {label:<20s} {'█' * filled}{'░' * (width - filled)} {value}/{max_val}")
+        ln(f"  {label:<20s} {'#' * filled}{'.' * (width - filled)} {value}/{max_val}")
 
     # ─── Cover ─────────────────────────────────────────────────
     ln()
@@ -772,13 +869,13 @@ def generate_txt_report(
     ln(f"  IP/Domain Reputation Analysis")
     ln("=" * W)
     ln()
-    ln(f"  Target:         {target}")
-    ln(f"  Type:           {'IP Address' if target_type == 'ip' else 'Domain'}")
-    ln(f"  Risk:           {risk.get('classification', 'N/A')} (Score: {risk.get('score', 0)}/100)")
-    ln(f"  Report ID:      {report_id}")
-    ln(f"  Date:           {timestamp}")
-    ln(f"  Prepared By:    {analyst}")
-    ln(f"  Classification: {classification}")
+    ln(f"  Investigation ID: {report_id}")
+    ln(f"  Target:           {target}")
+    ln(f"  Type:             {'IP Address' if target_type == 'ip' else 'Domain'}")
+    ln(f"  Risk:             {risk.get('classification', 'N/A')} (Score: {risk.get('score', 0)}/100)")
+    ln(f"  Date:             {timestamp}")
+    ln(f"  Prepared By:      {analyst}")
+    ln(f"  Classification:   {classification}")
     ln()
     ln("=" * W)
 
@@ -809,17 +906,46 @@ def generate_txt_report(
     source_statuses = risk.get("source_statuses", {})
     if source_statuses:
         for src, status in source_statuses.items():
-            marker = "✓" if status == "CHECKED" else "✗"
-            ln(f"  [{marker}] {src:<16s} {status}")
+            if status == "SUCCESS":
+                marker = "[OK]"
+            elif status == "NOT_FOUND":
+                marker = "[OK]"  # Successfully queried, just no results
+            elif status == "NO_API_KEY":
+                marker = "[!!]"
+            elif status == "RATE_LIMITED":
+                marker = "[!!]"
+            elif status == "TIMEOUT":
+                marker = "[!!]"
+            elif status == "UNAUTHORIZED":
+                marker = "[!!]"
+            elif status == "FORBIDDEN":
+                marker = "[!!]"
+            elif status == "SERVER_ERROR":
+                marker = "[!!]"
+            elif status == "NETWORK_ERROR":
+                marker = "[!!]"
+            else:
+                marker = "[!!]"
+            ln(f"  {marker} {src:<16s} {status}")
     else:
         # Fallback: infer from data
         for name, data in [("IPInfo", ipinfo), ("OTX", otx), ("AbuseIPDB", abuseipdb),
                            ("VirusTotal", vt), ("Shodan", shodan),
                            ("ThreatFox", threatfox), ("URLhaus", urlhaus)]:
-            if data is None or data.get("error"):
-                ln(f"  [✗] {name:<16s} NOT CHECKED")
+            if data is None:
+                ln(f"  [!!] {name:<16s} NOT RUN")
+            elif data.get("error"):
+                ln(f"  [!!] {name:<16s} ERROR")
             else:
-                ln(f"  [✓] {name:<16s} CHECKED")
+                ln(f"  [OK] {name:<16s} SUCCESS")
+
+    # Coverage summary
+    coverage = risk.get("coverage", {})
+    if coverage:
+        ln()
+        kv("Source Coverage", f"{coverage.get('checked', 0)}/{coverage.get('total', 0)} "
+           f"({coverage.get('percentage', 0)}%)")
+        kv("Confidence", f"{risk.get('confidence', 0)}%")
 
     # ─── 3. Indicator Profile ──────────────────────────────────
     sec("3. INDICATOR PROFILE")
@@ -880,6 +1006,7 @@ def generate_txt_report(
     # OTX
     if otx and not otx.get("error"):
         ln(f"  AlienVault OTX:")
+        ln(f"    Status:           MATCH" if otx.get("pulse_count", 0) > 0 else f"    Status:           NO MATCH")
         ln(f"    Pulse Count:      {otx.get('pulse_count', 0)}")
         ln(f"    Malware Samples:  {otx.get('malware_count', 0)}")
         ln(f"    Malicious URLs:   {otx.get('url_count', 0)}")
@@ -894,10 +1021,17 @@ def generate_txt_report(
             for m in otx["malware_samples"][:5]:
                 ln(f"      - {m.get('malware_name', 'Unknown')} (AV: {m.get('av_name', 'N/A')})")
         ln()
+    elif otx and otx.get("error"):
+        ln(f"  AlienVault OTX: Status: ERROR - {otx.get('error', '')}")
+        ln()
+    else:
+        ln(f"  AlienVault OTX: Status: NOT RUN")
+        ln()
 
     # AbuseIPDB
     if abuseipdb and not abuseipdb.get("error"):
         ln(f"  AbuseIPDB:")
+        ln(f"    Status:           MATCH" if abuseipdb.get('abuse_confidence_score', 0) > 0 else f"    Status:           NO MATCH")
         ln(f"    Abuse Confidence: {abuseipdb.get('abuse_confidence_score', 0)}%")
         ln(f"    Total Reports:    {abuseipdb.get('total_reports', 0)}")
         ln(f"    Distinct Users:   {abuseipdb.get('num_distinct_users', 0)}")
@@ -905,7 +1039,10 @@ def generate_txt_report(
         ln(f"    Usage Type:       {abuseipdb.get('usage_type', 'N/A')}")
         ln()
     elif abuseipdb and abuseipdb.get("error"):
-        ln(f"  AbuseIPDB: NOT CHECKED — {abuseipdb.get('error', '')}")
+        ln(f"  AbuseIPDB: Status: ERROR - {abuseipdb.get('error', '')}")
+        ln()
+    else:
+        ln(f"  AbuseIPDB: Status: NOT RUN")
         ln()
 
     # VirusTotal
@@ -913,20 +1050,27 @@ def generate_txt_report(
         mal = vt.get("malicious", 0)
         sus = vt.get("suspicious", 0)
         total = mal + sus + vt.get("harmless", 0) + vt.get("undetected", 0)
+        status_str = "MATCH" if mal > 0 else ("SUSPICIOUS" if sus > 0 else "NO MATCH")
         ln(f"  VirusTotal:")
+        ln(f"    Status:           {status_str}")
         ln(f"    Detection Ratio:  {mal}/{total} engines")
         ln(f"    Malicious:        {mal}")
         ln(f"    Suspicious:       {sus}")
         ln(f"    Clean:            {vt.get('harmless', 0)}")
+        ln(f"    Undetected:       {vt.get('undetected', 0)}")
         ln(f"    Reputation:       {vt.get('reputation', 'N/A')}")
         ln()
     elif vt and vt.get("error"):
-        ln(f"  VirusTotal: NOT CHECKED — {vt.get('error', '')}")
+        ln(f"  VirusTotal: Status: ERROR - {vt.get('error', '')}")
+        ln()
+    else:
+        ln(f"  VirusTotal: Status: NOT RUN")
         ln()
 
     # Shodan
     if shodan and not shodan.get("error"):
         ln(f"  Shodan:")
+        ln(f"    Status:           MATCH" if shodan.get('ports') else f"    Status:           NO MATCH")
         ln(f"    Open Ports:       {', '.join(str(p) for p in shodan.get('ports', [])) or 'None'}")
         ln(f"    OS:               {shodan.get('os', 'N/A') or 'N/A'}")
         ln(f"    Organization:     {shodan.get('org', 'N/A')}")
@@ -935,30 +1079,53 @@ def generate_txt_report(
             ln(f"    CVE List:         {', '.join(shodan['vulns'][:10])}")
         ln()
     elif shodan and shodan.get("error"):
-        ln(f"  Shodan: NOT CHECKED — {shodan.get('error', '')}")
+        ln(f"  Shodan: Status: ERROR - {shodan.get('error', '')}")
+        ln()
+    else:
+        ln(f"  Shodan: Status: NOT RUN")
         ln()
 
     # ThreatFox
-    if threatfox and not threatfox.get("error") and threatfox.get("ioc_count", 0) > 0:
-        ln(f"  ThreatFox:")
-        ln(f"    IOC Associations: {threatfox.get('ioc_count', 0)}")
-        for ioc in threatfox.get("iocs", [])[:5]:
-            ln(f"    - {ioc.get('malware', 'Unknown')} (Type: {ioc.get('threat_type', 'N/A')}, "
-               f"Confidence: {ioc.get('confidence', 0)}%)")
+    if threatfox and not threatfox.get("error"):
+        ioc_count = threatfox.get("ioc_count", 0)
+        if ioc_count > 0:
+            ln(f"  ThreatFox:")
+            ln(f"    Status:           MATCH")
+            ln(f"    IOC Associations: {ioc_count}")
+            for ioc in threatfox.get("iocs", [])[:5]:
+                ln(f"    - {ioc.get('malware', 'Unknown')} (Type: {ioc.get('threat_type', 'N/A')}, "
+                   f"Confidence: {ioc.get('confidence', 0)}%)")
+        else:
+            ln(f"  ThreatFox:")
+            ln(f"    Status:           NO MATCH")
+            ln(f"    IOC Associations: 0")
         ln()
     elif threatfox and threatfox.get("error"):
-        ln(f"  ThreatFox: NOT CHECKED — {threatfox.get('error', '')}")
+        ln(f"  ThreatFox: Status: ERROR - {threatfox.get('error', '')}")
+        ln()
+    else:
+        ln(f"  ThreatFox: Status: NOT RUN")
         ln()
 
     # URLhaus
-    if urlhaus and not urlhaus.get("error") and urlhaus.get("is_listed"):
-        ln(f"  URLhaus:")
-        ln(f"    Status:           LISTED")
-        ln(f"    Threat:           {urlhaus.get('threat', 'N/A')}")
-        ln(f"    URLs:             {urlhaus.get('url_count', 0)} (Online: {urlhaus.get('urls_online', 0)})")
+    if urlhaus and not urlhaus.get("error"):
+        is_listed = urlhaus.get("is_listed", False)
+        if is_listed:
+            ln(f"  URLhaus:")
+            ln(f"    Status:           MATCH")
+            ln(f"    Listed:           YES")
+            ln(f"    Threat:           {urlhaus.get('threat', 'N/A')}")
+            ln(f"    URLs:             {urlhaus.get('url_count', 0)} (Online: {urlhaus.get('urls_online', 0)})")
+        else:
+            ln(f"  URLhaus:")
+            ln(f"    Status:           NO MATCH")
+            ln(f"    Listed:           No")
         ln()
     elif urlhaus and urlhaus.get("error"):
-        ln(f"  URLhaus: NOT CHECKED — {urlhaus.get('error', '')}")
+        ln(f"  URLhaus: Status: ERROR - {urlhaus.get('error', '')}")
+        ln()
+    else:
+        ln(f"  URLhaus: Status: NOT RUN")
         ln()
 
     # ─── 7. Network Reconnaissance ─────────────────────────────
@@ -973,7 +1140,7 @@ def generate_txt_report(
             ln(f"    Scan Time:  {port_scan.get('scan_time', 0)}s")
             ln()
             ln(f"    {'Port':<8s} {'Service':<16s} {'Risk':<8s} Banner")
-            ln(f"    {'─' * 64}")
+            ln(f"    {'-' * 64}")
             for p in port_scan["open_ports"]:
                 svc = HIGH_RISK_PORTS.get(p, "Unknown")
                 risk_flag = "HIGH" if p in HIGH_RISK_PORTS else "LOW"
@@ -1007,7 +1174,7 @@ def generate_txt_report(
     classification = risk.get("classification", "LOW")
     action = "BLOCK" if classification in ("CRITICAL", "HIGH") else "MONITOR"
     ln(f"  {'Indicator':<42s} {'Type':<8s} {'Severity':<10s} {'Action':<8s} Notes")
-    ln(f"  {'─' * 80}")
+    ln(f"  {'-' * 80}")
     ln(f"  {target:<42s} {target_type.upper():<8s} {classification:<10s} {action:<8s} Primary indicator")
 
     if otx and otx.get("malware_samples"):
@@ -1030,7 +1197,8 @@ def generate_txt_report(
     # ─── 10. Detection Rules ───────────────────────────────────
     sec("10. DETECTION RULES")
 
-    ln("  Sigma Rule (Firewall):")
+    ln("  10.1 SIGMA RULE (Firewall):")
+    ln()
     ln(f"  title: Traffic to/from {target}")
     ln(f"  logsource: category: firewall")
     ln(f"  detection:")
@@ -1044,13 +1212,16 @@ def generate_txt_report(
     ln(f"  level: {classification.lower()}")
     ln()
 
-    ln("  Splunk Query:")
-    ln(f"  index=* (dest_ip=\"{target}\" OR src_ip=\"{target}\" OR dest=\"{target}\")")
-    ln(f"  | stats count by src_ip, dest_ip, dest, action, app")
-    ln(f"  | sort -count")
+    ln("  10.2 ELASTIC KQL FILTER:")
+    ln()
+    if target_type == "ip":
+        ln(f"  source.ip: \"{target}\" OR destination.ip: \"{target}\"")
+    else:
+        ln(f"  dns.question.name: \"{target}\" OR destination.domain: \"{target}\"")
     ln()
 
-    ln("  Elastic SIEM (EQL):")
+    ln("  10.3 ELASTIC EQL RULE:")
+    ln()
     ln(f"  // Kibana Security > Rules > Create Custom Rule")
     ln(f"  // Rule type: EQL")
     if target_type == "ip":
@@ -1059,27 +1230,28 @@ def generate_txt_report(
         ln(f"  network where dns.question.name == \"{target}\"")
         ln(f"    or destination.domain == \"{target}\"")
     ln()
-    ln("  Elastic SIEM (KQL filter for Detection Rule):")
-    if target_type == "ip":
-        ln(f"  source.ip: \"{target}\" OR destination.ip: \"{target}\"")
-    else:
-        ln(f"  dns.question.name: \"{target}\" OR destination.domain: \"{target}\"")
+
+    ln("  10.4 SPLUNK QUERY:")
     ln()
-    ln("  Elastic SIEM (JSON Rule Import — Kibana API):")
+    ln(f"  index=* (dest_ip=\"{target}\" OR src_ip=\"{target}\" OR dest=\"{target}\")")
+    ln(f"  | stats count by src_ip, dest_ip, dest, action, app")
+    ln(f"  | sort -count")
+    ln()
+
+    ln("  10.5 ELASTIC JSON RULE IMPORT (Kibana API):")
+    ln()
     ln(f'  POST /api/detection_engine/rules')
+    if target_type == "ip":
+        eql_q = 'network where destination.ip == "' + target + '" or source.ip == "' + target + '"'
+    else:
+        eql_q = 'network where dns.question.name == "' + target + '" or destination.domain == "' + target + '"'
     ln(f'  {{')
     ln(f'    "name": "Traffic to/from {target}",')
     ln(f'    "description": "Detects connections to investigated indicator {target}",')
     ln(f'    "risk_score": {risk.get("score", 0)},')
     ln(f'    "severity": "{classification.lower()}",')
-    if target_type == "ip":
-        ln(f'    "type": "eql",')
-        ln(f'    "query": "network where destination.ip == \\\"{target}\\\" or source.ip == \\\"{target}\\\"",')
-    else:
-        ln(f'    "type": "eql",')
-        ln(f'    "query": "network where dns.question.name == \\\"{target}\\\" or destination.domain == \\\"{target}\\\"",')
-    ln(f'    "risk_score_mapping": [],')
-    ln(f'    "severity_mapping": [],')
+    ln(f'    "type": "eql",')
+    ln(f'    "query": "{eql_q}",')
     ln(f'    "interval": "5m",')
     ln(f'    "from": "now-3600s",')
     ln(f'    "enabled": true,')
@@ -1106,7 +1278,13 @@ def generate_txt_report(
     # ─── Footer ────────────────────────────────────────────────
     ln("=" * W)
     ln(f"  Report generated: {timestamp} | Classification: {classification}")
+    ln(f"  Investigation ID: {report_id}")
     ln(f"  ThreatLens v1.0")
+    ln()
+    ln(f"  REPORT INTEGRITY")
+    ln(f"  This report was auto-generated from live OSINT queries.")
+    ln(f"  All source data reflects the state at the time of investigation.")
+    ln(f"  Results may differ if queries are re-run at a later time.")
     ln("=" * W)
 
     # ─── Save ──────────────────────────────────────────────────
@@ -1137,7 +1315,7 @@ def generate_bulk_txt_report(results_list: list, output_path: str) -> str:
 
     def sec(title):
         ln()
-        ln(f"--- {title} {''.ljust(W - len(title) - 6, chr(0x2500))}")
+        ln(f"--- {title} " + "-" * (W - len(title) - 6))
         ln()
 
     # Cover
@@ -1151,7 +1329,7 @@ def generate_bulk_txt_report(results_list: list, output_path: str) -> str:
     # Executive Summary
     sec("EXECUTIVE SUMMARY")
     ln(f"  {'#':<4s} {'Target':<35s} {'Type':<8s} {'Risk':<10s} {'Score':<8s} Status")
-    ln(f"  {''.ljust(80, chr(0x2500))}")
+    ln(f"  " + "-" * 76)
 
     for i, r in enumerate(results_list, 1):
         risk = r.get("risk", {})
@@ -1227,7 +1405,7 @@ def generate_bulk_txt_report(results_list: list, output_path: str) -> str:
     # Combined IOC Table
     sec("COMBINED IOC TABLE")
     ln(f"  {'Indicator':<38s} {'Type':<8s} {'Risk':<10s} {'Action'}")
-    ln(f"  {''.ljust(72, chr(0x2500))}")
+    ln(f"  " + "-" * 72)
     for r in results_list:
         target = r.get("target", "?")
         risk = r.get("risk", {})
