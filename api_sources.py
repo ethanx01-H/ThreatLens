@@ -145,7 +145,7 @@ def query_ipinfo(ip: str) -> Dict[str, Any]:
         headers["Authorization"] = f"Bearer {cfg.IPINFO_KEY}"
 
     url = f"{cfg.IPINFO_BASE}/{ip}/json"
-    data = _get(url, headers=headers)
+    data, resp = _get(url, headers=headers)
 
     if not data:
         result["error"] = "Failed to query IPInfo"
@@ -215,7 +215,7 @@ def query_otx_ip(ip: str) -> Dict[str, Any]:
         headers["X-OTX-API-KEY"] = cfg.OTX_KEY
 
     # --- General info + pulses ---
-    general = _get(f"{cfg.OTX_BASE}/indicators/IPv4/{ip}/general", headers=headers)
+    general, resp = _get(f"{cfg.OTX_BASE}/indicators/IPv4/{ip}/general", headers=headers)
     if general:
         pi = general.get("pulse_info", {})
         result["pulse_count"] = pi.get("count", 0)
@@ -237,7 +237,7 @@ def query_otx_ip(ip: str) -> Dict[str, Any]:
         result["error"] = "Failed to query OTX"
 
     # --- Malware samples ---
-    malware = _get(f"{cfg.OTX_BASE}/indicators/IPv4/{ip}/malware", headers=headers)
+    malware, resp = _get(f"{cfg.OTX_BASE}/indicators/IPv4/{ip}/malware", headers=headers)
     if malware:
         result["malware_count"] = malware.get("count", 0)
         for m in malware.get("data", [])[:10]:
@@ -250,7 +250,7 @@ def query_otx_ip(ip: str) -> Dict[str, Any]:
             })
 
     # --- Malicious URLs ---
-    urls = _get(f"{cfg.OTX_BASE}/indicators/IPv4/{ip}/url_list", headers=headers)
+    urls, resp = _get(f"{cfg.OTX_BASE}/indicators/IPv4/{ip}/url_list", headers=headers)
     if urls:
         result["url_count"] = urls.get("count", 0)
         for u in urls.get("url_list", [])[:10]:
@@ -282,7 +282,7 @@ def query_otx_domain(domain: str) -> Dict[str, Any]:
     if cfg.OTX_KEY:
         headers["X-OTX-API-KEY"] = cfg.OTX_KEY
 
-    general = _get(f"{cfg.OTX_BASE}/indicators/domain/{domain}/general", headers=headers)
+    general, resp = _get(f"{cfg.OTX_BASE}/indicators/domain/{domain}/general", headers=headers)
     if general:
         pi = general.get("pulse_info", {})
         result["pulse_count"] = pi.get("count", 0)
@@ -297,7 +297,7 @@ def query_otx_domain(domain: str) -> Dict[str, Any]:
     else:
         result["error"] = "Failed to query OTX for domain"
 
-    malware = _get(f"{cfg.OTX_BASE}/indicators/domain/{domain}/malware", headers=headers)
+    malware, resp = _get(f"{cfg.OTX_BASE}/indicators/domain/{domain}/malware", headers=headers)
     if malware:
         result["malware_count"] = malware.get("count", 0)
         for m in malware.get("data", [])[:10]:
@@ -308,7 +308,7 @@ def query_otx_domain(domain: str) -> Dict[str, Any]:
                 "date": m.get("created", "")[:10],
             })
 
-    urls = _get(f"{cfg.OTX_BASE}/indicators/domain/{domain}/url_list", headers=headers)
+    urls, resp = _get(f"{cfg.OTX_BASE}/indicators/domain/{domain}/url_list", headers=headers)
     if urls:
         result["url_count"] = urls.get("count", 0)
         for u in urls.get("url_list", [])[:10]:
