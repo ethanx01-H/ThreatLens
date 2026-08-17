@@ -768,8 +768,9 @@ tags:
 
     # ─── Save ──────────────────────────────────────────────────
     if not output_path:
+        from config import DOWNLOADS_DIR
         safe_target = target.replace(":", "-").replace("/", "-").replace("\\", "-")
-        output_path = f"TI_Report_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        output_path = str(DOWNLOADS_DIR / f"TI_Report_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx")
 
     try:
         doc.save(output_path)
@@ -1259,8 +1260,9 @@ def generate_txt_report(
 
     # ─── Save ──────────────────────────────────────────────────
     if not output_path:
+        from config import DOWNLOADS_DIR
         safe_target = target.replace(":", "-").replace("/", "-").replace("\\", "-")
-        output_path = f"TI_Report_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        output_path = str(DOWNLOADS_DIR / f"TI_Report_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
 
     content = "\n".join(lines)
     with open(output_path, "w", encoding="utf-8") as f:
@@ -1558,7 +1560,8 @@ def generate_bulk_docx_report(results_list: list, output_path: str) -> str:
        alignment=WD_ALIGN_PARAGRAPH.CENTER)
 
     if not output_path:
-        output_path = f"Bulk_Report_{len(results_list)}targets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        from config import DOWNLOADS_DIR
+        output_path = str(DOWNLOADS_DIR / f"Bulk_Report_{len(results_list)}targets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx")
 
     try:
         doc.save(output_path)

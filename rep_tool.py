@@ -616,7 +616,8 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
 
             if args.report:
                 fmt = args.format
-                out_path = args.output or f"TI_Report_{target.replace('.', '_')}_{datetime.now().strftime('%Y%m%d')}.{fmt}"
+                from config import DOWNLOADS_DIR
+                out_path = args.output or str(DOWNLOADS_DIR / f"TI_Report_{target.replace('.', '_')}_{datetime.now().strftime('%Y%m%d')}.{fmt}")
                 try:
                     kwargs = dict(
                         target=target,

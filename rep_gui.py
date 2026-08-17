@@ -1148,7 +1148,27 @@ class RepToolApp:
             safe = target.replace(":", "-").replace("/", "-").replace("\\", "-").replace(".", "_")
             default_name = f"TI_Report_{safe}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
 
-        output_path = os.path.join(BUNDLE_DIR, default_name)
+        # Show save dialog — default to Downloads folder
+        from tkinter import filedialog
+        from config import DOWNLOADS_DIR
+        default_dir = str(DOWNLOADS_DIR)
+
+        if fmt == "docx":
+            filetypes = [("Word Document", "*.docx"), ("All Files", "*.*")]
+        else:
+            filetypes = [("Text File", "*.txt"), ("All Files", "*.*")]
+
+        output_path = filedialog.asksaveasfilename(
+            initialdir=default_dir,
+            initialfile=default_name,
+            defaultextension=f".{fmt}",
+            filetypes=filetypes,
+            title="Save Report",
+        )
+
+        if not output_path:
+            return  # User cancelled
+
         self.status_var.set(f"Generating {fmt.upper()} report ({count} target(s))...")
 
         def gen():

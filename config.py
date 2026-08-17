@@ -29,6 +29,33 @@ APPDATA_DIR = _get_appdata_dir()
 APPDATA_KEYS_FILE = APPDATA_DIR / "api_keys.json"
 BUNDLED_KEYS_FILE = TOOL_DIR / "api_keys.json"
 
+
+def _get_downloads_dir() -> Path:
+    """Get the user's Downloads folder for report export."""
+    if sys.platform == "win32":
+        # Windows: shell32 known folder or fallback
+        try:
+            import ctypes.wintypes
+            CSIDL_PERSONAL = 0x0005  # fallback
+            buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
+            ctypes.windll.shell32.SHGetFolderPathW(None, 0x0005, None, 0, buf)  # My Documents
+            docs = Path(buf.value)
+            downloads = docs.parent / "Downloads"
+            if downloads.exists():
+                return downloads
+        except Exception:
+            pass
+        return Path.home() / "Downloads"
+    else:
+        # Linux / macOS
+        downloads = Path.home() / "Downloads"
+        if downloads.exists():
+            return downloads
+        return Path.home()
+
+
+DOWNLOADS_DIR = _get_downloads_dir()
+
 # Create appdata directory on import
 try:
     APPDATA_DIR.mkdir(parents=True, exist_ok=True)
