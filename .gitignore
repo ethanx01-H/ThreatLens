@@ -12,6 +12,15 @@ dist/
 build/
 release/
 *.manifest
+*.spec.bak
+
+# Nuitka
+ThreatLens.build/
+ThreatLens.dist/
+ThreatLens.onefile-build/
+ThreatLens.exe.build/
+*.build/
+*.dist/
 
 # Environment / Secrets
 .env

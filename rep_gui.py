@@ -490,10 +490,12 @@ class RepToolApp:
         dialog.transient(self.root)
         dialog.grab_set()
 
-        # Dark title bar
+        # Dark title bar (use winfo_id() to get HWND — avoids GetForegroundWindow
+        # which AV flags as keylogging/screenshot API)
         try:
             import ctypes
-            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            dialog.update_idletasks()
+            hwnd = dialog.winfo_id()
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
                 hwnd, 20, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int)
             )
@@ -657,10 +659,11 @@ class RepToolApp:
         dialog.resizable(False, False)
         dialog.transient(self.root)
 
-        # Dark title bar
+        # Dark title bar (use winfo_id() — avoids GetForegroundWindow AV flag)
         try:
             import ctypes
-            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            dialog.update_idletasks()
+            hwnd = dialog.winfo_id()
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
                 hwnd, 20, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int))
         except Exception:
@@ -1608,9 +1611,12 @@ def main():
     root = Tk()
 
     # Dark title bar on Windows 10/11
+    # Use winfo_id() instead of GetForegroundWindow — latter triggers AV
+    # keylogging/screenshot API heuristics
     try:
         import ctypes
-        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        root.update_idletasks()
+        hwnd = root.winfo_id()
         DWMWA_USE_IMMERSIVE_DARK_MODE = 20
         ctypes.windll.dwmapi.DwmSetWindowAttribute(
             hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
