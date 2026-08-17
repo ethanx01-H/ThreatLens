@@ -1,7 +1,7 @@
 # ThreatLens v1.0
 
 <p align="center">
-  <img src="logo_512.png" width="180" alt="ThreatLens Logo"/>
+  <img src="threatlens.png" width="180" alt="ThreatLens Logo"/>
 </p>
 
 <p align="center">

@@ -23,8 +23,8 @@ except ImportError:
 
 # Logo paths (relative to this file or exe bundle)
 _BUNDLE_DIR = _os.path.dirname(_os.path.abspath(__file__))
-_LOGO_512 = _os.path.join(_BUNDLE_DIR, "logo_512.png")
-_WATERMARK = _os.path.join(_BUNDLE_DIR, "logo_watermark.png")
+_LOGO_512 = _os.path.join(_BUNDLE_DIR, "threatlens.png")
+_WATERMARK = _os.path.join(_BUNDLE_DIR, "threatlens.png")
 
 
 # Country code -> full name mapping (common codes in threat intel)

@@ -25,8 +25,8 @@ else:
 sys.path.insert(0, BUNDLE_DIR)
 
 # Logo paths
-LOGO_64 = os.path.join(BUNDLE_DIR, "logo_64.png")
-LOGO_512 = os.path.join(BUNDLE_DIR, "logo_512.png")
+LOGO_64 = os.path.join(BUNDLE_DIR, "threatlens.png")
+LOGO_512 = os.path.join(BUNDLE_DIR, "threatlens.png")
 
 # ═══════════════════════════════════════════════════════════════════
 # Theme — RGB(16, 32, 51) Navy Dark Theme
