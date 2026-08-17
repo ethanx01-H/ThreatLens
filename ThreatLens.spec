@@ -1,13 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-ThreatLens v1.0 — PyInstaller build spec (AV-optimized)
+ThreatLens v1.0 — Single-file PyInstaller spec
 
-Changes from original to reduce AV false positives:
-  - onefolder mode (no single-file self-extracting archive)
-  - UPX disabled (packed binaries trigger ~70% of AV engines)
-  - strip=False (unstripped binaries are less suspicious)
-  - Version info added (CompanyName, FileDescription, LegalCopyright)
-  - console=True for dev; change to False for final release
+Combines everything into one ThreatLens.exe.
+No _internal/ folder, no separate DLLs — user gets one file.
 """
 
 a = Analysis(
@@ -38,15 +34,16 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
     name='ThreatLens',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
     runtime_tmpdir=None,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -54,14 +51,4 @@ exe = EXE(
     entitlements_file=None,
     icon=['app.ico'],
     version='version_info.txt',
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=False,
-    upx_exclude=[],
-    name='ThreatLens',
 )
