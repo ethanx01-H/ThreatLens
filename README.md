@@ -1,10 +1,27 @@
-# ThreatLens v1.0
+<p align="center">
+  <img src="./ThreatLens.png" width="180" alt="ThreatLens Logo">
+</p>
+
+
+<h1 align="center">ThreatLens v1.0</h1>
+
 
 <p align="center">
-  <a href="https://github.com/ethanx01-H/ThreatLens">
-    <img src="ThreatLens.png" width="180" alt="ThreatLens"/>
-  </a>
+  Multi-Source Threat Intelligence Investigation
 </p>
+
+
+<p align="center">
+  A CLI + GUI threat intelligence investigation tool for SOC analysts.
+</p>
+
+
+<p align="center">
+  IP & Domain Reputation • OSINT • Subdomain Enumeration • Risk Scoring • SIEM Detection
+</p>
+
+
+---
 
 <p align="center">
   <a href="https://github.com/ethanx01-H/ThreatLens/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
@@ -19,10 +36,6 @@
   <img src="https://img.shields.io/badge/detection-Sigma%20%7C%20Splunk%20%7C%20Elastic-purple.svg" alt="SIEM Rules">
   <img src="https://img.shields.io/badge/built_with-Nuitka%20%7C%20PyInstaller-brightgreen.svg" alt="Build Tools">
 </p>
-
-**Multi-Source Threat Intelligence Investigation**
-
-A CLI + GUI tool for SOC analysts to investigate IP addresses and domain names using 7 OSINT sources, subdomain enumeration, wildcard search, tiered risk scoring, and professional report generation with SIEM detection rules.
 
 ---
 
