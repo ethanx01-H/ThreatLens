@@ -1,4 +1,4 @@
-# 🛡️ ThreatLens v1.0
+# ThreatLens v1.0
 
 <p align="center">
   <img src="anime_reputation_logo.svg" width="180" alt="ThreatLens Logo"/>
@@ -6,13 +6,16 @@
 
 <p align="center">
   <a href="https://github.com/ethanx01-H/ThreatLens/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <img src="https://img.shields.io/badge/python-3.8%2B-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20WSL-lightgrey.svg" alt="Platform">
   <a href="https://github.com/ethanx01-H/ThreatLens/releases"><img src="https://img.shields.io/github/v/release/ethanx01-H/ThreatLens.svg" alt="Release"></a>
   <a href="https://github.com/ethanx01-H/ThreatLens/stargazers"><img src="https://img.shields.io/github/stars/ethanx01-H/ThreatLens.svg?style=social" alt="Stars"></a>
   <a href="https://github.com/ethanx01-H/ThreatLens/network/members"><img src="https://img.shields.io/github/forks/ethanx01-H/ThreatLens.svg?style=social" alt="Forks"></a>
   <img src="https://img.shields.io/badge/osint-7_sources-green.svg" alt="OSINT Sources">
   <img src="https://img.shields.io/badge/risk_scoring-tiered-red.svg" alt="Risk Scoring">
+  <img src="https://img.shields.io/badge/report-DOCX%20%7C%20TXT-orange.svg" alt="Report Formats">
+  <img src="https://img.shields.io/badge/detection-Sigma%20%7C%20Splunk%20%7C%20Elastic-purple.svg" alt="SIEM Rules">
+  <img src="https://img.shields.io/badge/built_with-Nuitka%20%7C%20PyInstaller-brightgreen.svg" alt="Build Tools">
 </p>
 
 **Multi-Source Threat Intelligence Investigation**
@@ -21,7 +24,7 @@ A CLI + GUI tool for SOC analysts to investigate IP addresses and domain names u
 
 ---
 
-## ⚡ Quick Start
+## Quick Start (Linux / WSL)
 
 ```bash
 # Clone
@@ -29,7 +32,7 @@ git clone https://github.com/ethanx01-H/ThreatLens.git
 cd ThreatLens
 
 # Install dependencies
-pip install -r requirements.txt --break-system-packages
+pip install -r requirements.txt
 
 # Investigate an IP
 python3 rep_tool.py 1.2.3.4
@@ -37,7 +40,7 @@ python3 rep_tool.py 1.2.3.4
 # Investigate a domain with TXT report
 python3 rep_tool.py suspicious-domain.com --report
 
-# DOCX report
+# DOCX report (IC Incident Report template style)
 python3 rep_tool.py 1.2.3.4 --report --format docx
 
 # Subdomain enumeration + analysis
@@ -46,14 +49,15 @@ python3 rep_tool.py example.com --subdomains --report
 # Wildcard: scan a whole IP range
 python3 rep_tool.py -w '192.168.1.*' --skip-ports
 
-# Ctrl+C to stop at any time
+# Batch from file
+python3 rep_tool.py --batch iocs.txt --report -f docx
 ```
 
 ---
 
-## 🪟 Windows Executable
+## Windows Executable
 
-A standalone `.exe` is available — no Python installation required.
+A standalone single-file `.exe` is available — no Python installation required.
 
 ### Download
 
@@ -62,10 +66,14 @@ Download `ThreatLens.exe` from the [releases](https://github.com/ethanx01-H/Thre
 ### Build from Source
 
 ```cmd
-build_windows.bat
+# Nuitka (recommended — native C compiled, clean AV)
+build_nuitka.bat
+
+# PyInstaller (alternative)
+build.bat
 ```
 
-Output: `dist\ThreatLens.exe` (~17 MB standalone)
+Output: `dist\ThreatLens.exe` (~19 MB standalone)
 
 ### GUI Usage
 
@@ -73,23 +81,15 @@ Output: `dist\ThreatLens.exe` (~17 MB standalone)
 2. Enter an IP or domain, click **ANALYZE** (or press Enter)
 3. Click **STOP** to cancel a running analysis
 4. Click **SUBS** to enumerate and analyze all subdomains
-5. Click **BULK** to analyze multiple targets (configure Skip Ports, Skip TOR, JSON)
+5. Click **BULK** to analyze multiple targets
 6. Click **REPORT** to export (TXT or DOCX toggle)
-7. Click **⚙ SETTINGS** to configure API keys (masked, persistent)
-
-**Keyboard shortcuts:**
-
-| Key | Action |
-|-----|--------|
-| Enter | Start analysis / Confirm dialog |
-| Escape | Cancel dialog |
-| Ctrl+C | Stop running analysis (CLI) |
+7. Click **SETTINGS** to configure API keys (masked, persistent)
 
 API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works forever.
 
 ---
 
-## 🔍 Features
+## Features
 
 | Feature | Description |
 |---------|-------------|
@@ -98,25 +98,24 @@ API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works f
 | **Wildcard Search** | `*.domain.com`, `192.168.1.*`, CIDR ranges (`10.0.0.0/24`) |
 | **Network Recon** | DNS (A/AAAA/MX/NS/TXT/SOA/CNAME), reverse DNS, WHOIS, TCP port scan with banner grab |
 | **HTTP/HTTPS Probe** | Server headers, TLS certificate, security header audit |
-| **Risk Scoring Engine** | Tiered multi-signal scoring (0–100) with known-good whitelists |
+| **Risk Scoring Engine** | Tiered multi-signal scoring (0-100) with known-good whitelists |
 | **Three-State Verdict** | MALICIOUS / BENIGN / NOT CHECKED per source |
-| **Report Export** | TXT or DOCX — color-coded tables, IOC tables, cover page |
+| **Report Export** | TXT or DOCX — IC Incident Report template style, color-coded tables, IOC tables |
 | **SIEM Detection Rules** | Sigma, Splunk, Elastic SIEM (EQL + KQL + JSON import) |
 | **Settings Panel** | GUI API key management with masked input, persistent storage |
 | **Bulk Analyze** | Queue multiple targets — all options work in all modes |
-| **STOP Button** | Cancel running analysis (GUI) or Ctrl+C (CLI) |
 | **TOR Detection** | Live TOR exit node list check |
 
 ---
 
-## 📊 Risk Scoring
+## Risk Scoring
 
 ### Signal Tiers
 
 | Tier | Strength | Sources |
 |------|----------|---------|
-| **TIER 1** | STRONG — direct malicious verdict | VT detections, AbuseIPDB ≥75%, ThreatFox C2, URLhaus listing, OTX pulses + bad tags, TOR exit |
-| **TIER 2** | MODERATE — suspicious context | OTX pulses (no tags), AbuseIPDB 40–74%, Shodan CVEs, high-risk ports, new domain age |
+| **TIER 1** | STRONG — direct malicious verdict | VT detections, AbuseIPDB >=75%, ThreatFox C2, URLhaus listing, OTX pulses + bad tags, TOR exit |
+| **TIER 2** | MODERATE — suspicious context | OTX pulses (no tags), AbuseIPDB 40-74%, Shodan CVEs, high-risk ports, new domain age |
 | **TIER 3** | WEAK — passive/contextual | OTX malware associations, no reverse DNS, bulletproof ASN |
 
 ### Known-Good Whitelist
@@ -127,34 +126,36 @@ API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works f
 
 | Level | Score | Action |
 |-------|-------|--------|
-| 🔴 CRITICAL | 80–100 | Block immediately, escalate |
-| 🟠 HIGH | 60–79 | Block after business review |
-| 🟡 MEDIUM | 35–59 | Add to monitoring watchlist |
-| 🟢 LOW | 0–34 | Log for reference |
+| CRITICAL | 80-100 | Block immediately, escalate |
+| HIGH | 60-79 | Block after business review |
+| MEDIUM | 35-59 | Add to monitoring watchlist |
+| LOW | 0-34 | Log for reference |
 
 ---
 
-## 📋 Report Sections
+## Report Sections (DOCX)
+
+Reports follow the IC Cybersecurity Incident Report template style with Century Gothic font, orange section headers, and gray input fields.
 
 | # | Section | Description |
 |---|---------|-------------|
-| 1 | Executive Summary | Risk score, classification, known-good status |
-| 2 | Source Verification | ✓ CHECKED / ✗ NOT CHECKED per source |
-| 3 | Indicator Profile | Geolocation, ASN, ISP, DNS, WHOIS |
-| 4 | Risk Assessment | Score breakdown with bar charts, signal tiers + interpretation |
-| 5 | Mitigating Factors | Whitelist, clean verdicts |
-| 6 | Threat Intelligence | Per-source detail (OTX, AbuseIPDB, VT, Shodan, ThreatFox, URLhaus) |
-| 7 | Network Recon | Port table, banners, HTTP headers, TLS |
-| 8 | IOC Table | BLOCK/MONITOR actions with severity color-coding |
-| 9 | Recommended Actions | Classification-based response playbook |
-| 10 | Detection Rules | Sigma + Splunk + Elastic SIEM (EQL, KQL, JSON rule import) |
-| 11 | Appendix | OSINT source URLs for manual verification |
-
-Bulk reports include a summary table + per-target detail pages + combined IOC table.
+| 1 | Report Information | Date, analyst, classification |
+| 2 | Investigation Summary | Target, type, detection method |
+| 3 | IPInfo / Geolocation | Country, city, ASN, ISP, coordinates, timezone |
+| 4 | Risk Assessment | Score, classification, source coverage |
+| 5 | Signal Analysis | Tiered threat signals with severity |
+| 6 | Threat Intelligence Findings | Source-by-source status table |
+| 7 | OTX / AbuseIPDB / VT / Shodan / ThreatFox / URLhaus | Per-source detail sections with country names |
+| 8 | Port Scan Results | Open ports, banners, risk levels |
+| 9 | Reverse DNS | PTR records |
+| 10 | IOC Table | BLOCK/MONITOR actions with severity |
+| 11 | Recommended Actions | Classification-based response playbook |
+| 12 | Detection Rules | Sigma + Splunk + Elastic SIEM (EQL, KQL, JSON) |
+| 13 | Appendix | OSINT source URLs for manual verification |
 
 ---
 
-## 🖥️ CLI Reference
+## CLI Reference
 
 ```
 usage: rep_tool.py [-h] [--report] [--format {txt,docx}] [--output OUTPUT]
@@ -202,29 +203,29 @@ python3 rep_tool.py --batch iocs.txt --report -f txt
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### API Keys
 
 Free-tier sources (IPInfo, OTX) work without keys. For enhanced coverage:
 
-**GUI:** Click ⚙ SETTINGS → enter keys → SAVE (masked, persistent)
+**GUI:** Click SETTINGS -> enter keys -> SAVE (masked, persistent)
 
 **CLI:** Set via environment variables, `.env` file, or `api_keys.json`
 
 | Source | Free Tier | Get Key |
 |--------|-----------|---------|
-| IPInfo | ✅ 50k/mo | https://ipinfo.io/account/token |
-| AlienVault OTX | ✅ | https://otx.alienvault.com/api |
-| AbuseIPDB | ✅ 1k/day | https://www.abuseipdb.com/account/api |
-| VirusTotal | ✅ 4 req/min | https://www.virustotal.com/gui/my-apikey |
-| Shodan | ✅ limited | https://account.shodan.io/ |
-| ThreatFox | ✅ | https://auth.abuse.ch/ |
-| URLhaus | ✅ | https://auth.abuse.ch/ |
+| IPInfo | 50k/mo | https://ipinfo.io/account/token |
+| AlienVault OTX | Unlimited | https://otx.alienvault.com/api |
+| AbuseIPDB | 1k/day | https://www.abuseipdb.com/account/api |
+| VirusTotal | 4 req/min | https://www.virustotal.com/gui/my-apikey |
+| Shodan | Limited | https://account.shodan.io/ |
+| ThreatFox | Unlimited | https://auth.abuse.ch/ |
+| URLhaus | Unlimited | https://auth.abuse.ch/ |
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ThreatLens/
@@ -236,9 +237,11 @@ ThreatLens/
 ├── risk_engine.py       # Tiered risk scoring with known-good whitelists
 ├── report_gen.py        # TXT + DOCX report generators (Sigma/Splunk/Elastic)
 ├── subdomain_enum.py    # Subdomain discovery (crt.sh, OTX, Shodan, VT, brute)
-├── build_windows.bat    # One-click Windows .exe build
+├── build.bat            # PyInstaller build script
+├── build_nuitka.bat     # Nuitka build script (recommended)
+├── ThreatLens.spec      # PyInstaller spec
+├── version_info.txt     # Windows PE version metadata
 ├── app.ico              # Application icon
-├── anime_reputation_logo.svg  # Logo
 ├── requirements.txt
 └── README.md
 ```
@@ -256,7 +259,7 @@ ThreatLens/
 
 ---
 
-## 🎯 Use Cases
+## Use Cases
 
 | Use Case | Description |
 |----------|-------------|
@@ -271,19 +274,13 @@ ThreatLens/
 
 ---
 
-## 🔒 Security
+## Security
 
 ### API Key Storage
 - Keys stored in `%APPDATA%\ThreatLens\api_keys.json` (Windows) or `~/.config/threatlens/` (Linux)
 - Keys never logged or included in reports
 - Keys loaded at runtime, not compiled into the exe
 - Hot-reload: changing keys in Settings takes effect immediately
-
-### Network Requests
-- SSL verification disabled intentionally for HTTP probe (suspicious domains often have invalid certs)
-- InsecureRequestWarning suppressed to reduce noise
-- All API calls use HTTPS endpoints
-- Rate limiting and retry logic on all API calls
 
 ### Input Validation
 - IP addresses validated via regex before processing
@@ -292,28 +289,22 @@ ThreatLens/
 - No path traversal vulnerabilities
 - No unsafe deserialization (no pickle, yaml.load, or marshal)
 
-### Report Safety
-- Reports never include API keys
-- Reports never include raw credentials
-- Reports contain only OSINT-sourced threat intelligence
-
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions welcome!
 - Report bugs and feature requests via [GitHub Issues](https://github.com/ethanx01-H/ThreatLens/issues)
 - Submit PRs for new OSINT source integrations
 - Improve risk scoring logic or add new signal types
 - Add unit tests and integration tests
-- Improve documentation and add usage examples
 
 ---
 
-## 📝 License
+## License
 
 MIT License — Free for SOC teams, threat researchers, and security analysts.
 
 ---
 
-*Built for security analysts and threat researchers. Tested on WSL (Ubuntu) and Windows.*
+*Built for security analysts and threat researchers. Runs on Linux, WSL, and Windows.*
