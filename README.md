@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://github.com/ethanx01-H/ThreatLens">
-    <img src="https://raw.githubusercontent.com/ethanx01-H/ThreatLens/main/threatlens.png?v=2" width="180" alt="ThreatLens"/>
+    <img src="ThreatLens.png" width="180" alt="ThreatLens"/>
   </a>
 </p>
 

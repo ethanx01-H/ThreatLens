@@ -23,8 +23,7 @@ except ImportError:
 
 # Logo paths (relative to this file or exe bundle)
 _BUNDLE_DIR = _os.path.dirname(_os.path.abspath(__file__))
-_LOGO_512 = _os.path.join(_BUNDLE_DIR, "threatlens.png")
-_WATERMARK = _os.path.join(_BUNDLE_DIR, "threatlens.png")
+_LOGO = _os.path.join(_BUNDLE_DIR, "ThreatLens.png")
 
 
 # Country code -> full name mapping (common codes in threat intel)
@@ -237,7 +236,7 @@ def _make_header_table(doc, title, headers, data, ncols=None):
 
 def _add_watermark(doc):
     """Add a semi-transparent logo watermark behind page content."""
-    if not _os.path.exists(_WATERMARK):
+    if not _os.path.exists(_LOGO):
         return
     for section in doc.sections:
         header = section.header
@@ -246,7 +245,7 @@ def _add_watermark(doc):
         p = header.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
-        run.add_picture(_WATERMARK, width=Cm(6))
+        run.add_picture(_LOGO, width=Cm(6))
 
 
 # ═══════════════════════════════════════════════════════════════════

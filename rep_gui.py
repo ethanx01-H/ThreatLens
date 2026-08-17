@@ -25,8 +25,7 @@ else:
 sys.path.insert(0, BUNDLE_DIR)
 
 # Logo paths
-LOGO_64 = os.path.join(BUNDLE_DIR, "threatlens.png")
-LOGO_512 = os.path.join(BUNDLE_DIR, "threatlens.png")
+LOGO = os.path.join(BUNDLE_DIR, "ThreatLens.png")
 
 # ═══════════════════════════════════════════════════════════════════
 # Theme — RGB(16, 32, 51) Navy Dark Theme
@@ -155,8 +154,8 @@ class RepToolApp:
         # Logo
         try:
             from PIL import Image, ImageTk
-            if os.path.exists(LOGO_64):
-                _logo_img = Image.open(LOGO_64).resize((32, 32), Image.LANCZOS)
+            if os.path.exists(LOGO):
+                _logo_img = Image.open(LOGO).resize((32, 32), Image.LANCZOS)
                 self._logo_photo = ImageTk.PhotoImage(_logo_img)
                 Label(header, image=self._logo_photo,
                       bg=Theme.BG_HEADER).pack(side=LEFT, padx=(12, 6), pady=8)

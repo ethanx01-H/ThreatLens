@@ -11,7 +11,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('threatlens.png', '.'),
+        ('ThreatLens.png', '.'),
     ],
     hiddenimports=[
         'dns.resolver', 'dns.rdatatype', 'dns.rdataclass', 'dns.exception',
