@@ -1,7 +1,9 @@
 # ThreatLens v1.0
 
 <p align="center">
-  <img src="threatlens.png" width="180" alt="ThreatLens Logo"/>
+  <a href="https://github.com/ethanx01-H/ThreatLens">
+    <img src="https://raw.githubusercontent.com/ethanx01-H/ThreatLens/main/threatlens.png?v=2" width="180" alt="ThreatLens"/>
+  </a>
 </p>
 
 <p align="center">
