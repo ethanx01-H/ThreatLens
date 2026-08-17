@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./ThreatLens.png" width="180" alt="ThreatLens Logo">
+  <img src="./logo_512.png" width="180" alt="ThreatLens Logo">
 </p>
 
 
