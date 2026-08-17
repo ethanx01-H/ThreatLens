@@ -15,12 +15,6 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('config.py', '.'),
-        ('api_sources.py', '.'),
-        ('dns_recon.py', '.'),
-        ('risk_engine.py', '.'),
-        ('report_gen.py', '.'),
-        ('subdomain_enum.py', '.'),
         ('logo_512.png', '.'),
         ('logo_64.png', '.'),
     ],
