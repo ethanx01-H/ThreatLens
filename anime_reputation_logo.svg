@@ -1,74 +1,52 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <style>
-      .shield { fill: none; stroke: #111827; stroke-width: 10; stroke-linejoin: round; }
-      .shield-inner { fill: none; stroke: #9CA3AF; stroke-width: 3.5; stroke-linejoin: round; }
-      .eye-outline { fill: none; stroke: #111827; stroke-width: 6; }
-      .iris { fill: none; stroke: #111827; stroke-width: 5; }
-      .pupil { fill: #111827; }
-      .scan-beam { stroke: #2563EB; stroke-width: 5; }
-      .glint-main { fill: #2563EB; }
-      .glint-small { fill: #FFFFFF; }
-      .threat-arc-red { fill: none; stroke: #DC2626; stroke-width: 6; stroke-linecap: round; }
-      .threat-arc-amber { fill: none; stroke: #F59E0B; stroke-width: 5; stroke-linecap: round; }
-      .cross-x { stroke: #DC2626; stroke-width: 6; stroke-linecap: round; }
-      .spark { fill: #10B981; }
-      .data-stream { stroke: #2563EB; stroke-width: 4; stroke-dasharray: 10 7; }
-      .data-stream-faint { stroke: #D1D5DB; stroke-width: 3; stroke-dasharray: 8 5; }
-      .corner-bracket { fill: none; stroke: #6B7280; stroke-width: 5; stroke-linecap: round; }
-      .speed-line { stroke: #D1D5DB; stroke-width: 3; opacity: 0.5; }
-      .speed-line-thin { stroke: #E5E7EB; stroke-width: 2; opacity: 0.4; }
-    </style>
-  </defs>
-
   <!-- Speed lines background -->
-  <line class="speed-line" x1="20" y1="100" x2="120" y2="100"/>
-  <line class="speed-line-thin" x1="10" y1="140" x2="100" y2="140"/>
-  <line class="speed-line" x1="380" y1="80" x2="500" y2="80"/>
-  <line class="speed-line-thin" x1="400" y1="440" x2="500" y2="440"/>
-  <line class="speed-line" x1="30" y1="420" x2="130" y2="420"/>
+  <line x1="20" y1="100" x2="120" y2="100" stroke="#D1D5DB" stroke-width="3" opacity="0.5"/>
+  <line x1="10" y1="140" x2="100" y2="140" stroke="#E5E7EB" stroke-width="2" opacity="0.4"/>
+  <line x1="380" y1="80" x2="500" y2="80" stroke="#D1D5DB" stroke-width="3" opacity="0.5"/>
+  <line x1="400" y1="440" x2="500" y2="440" stroke="#E5E7EB" stroke-width="2" opacity="0.4"/>
+  <line x1="30" y1="420" x2="130" y2="420" stroke="#D1D5DB" stroke-width="3" opacity="0.5"/>
 
   <!-- Angular shield outer -->
-  <polygon class="shield" points="256,40 432,112 432,304 256,472 80,304 80,112"/>
+  <polygon points="256,40 432,112 432,304 256,472 80,304 80,112" fill="none" stroke="#111827" stroke-width="10" stroke-linejoin="round"/>
 
   <!-- Inner shield bevel -->
-  <polygon class="shield-inner" points="256,72 384,132 384,292 256,428 128,292 128,132"/>
+  <polygon points="256,72 384,132 384,292 256,428 128,292 128,132" fill="none" stroke="#9CA3AF" stroke-width="3.5" stroke-linejoin="round"/>
 
   <!-- Anime-style digital eye / scanner -->
-  <path class="eye-outline" d="M152 256 Q256 180 360 256 Q256 332 152 256 Z"/>
+  <path d="M152 256 Q256 180 360 256 Q256 332 152 256 Z" fill="none" stroke="#111827" stroke-width="6"/>
 
   <!-- Iris -->
-  <circle class="iris" cx="256" cy="256" r="56"/>
+  <circle cx="256" cy="256" r="56" fill="none" stroke="#111827" stroke-width="5"/>
 
   <!-- Pupil -->
-  <circle class="pupil" cx="256" cy="256" r="26"/>
+  <circle cx="256" cy="256" r="26" fill="#111827"/>
 
   <!-- Scan beam -->
-  <line class="scan-beam" x1="152" y1="256" x2="360" y2="256"/>
+  <line x1="152" y1="256" x2="360" y2="256" stroke="#2563EB" stroke-width="5"/>
 
   <!-- Glint highlight (anime style) -->
-  <ellipse class="glint-main" cx="276" cy="236" rx="13" ry="8" opacity="0.9"/>
-  <ellipse class="glint-small" cx="240" cy="246" rx="7" ry="4" opacity="0.9"/>
+  <ellipse cx="276" cy="236" rx="13" ry="8" fill="#2563EB" opacity="0.9"/>
+  <ellipse cx="240" cy="246" rx="7" ry="4" fill="#FFFFFF" opacity="0.9"/>
 
   <!-- Threat detection arcs -->
-  <path class="threat-arc-red" d="M120 224 A140 140 0 0 1 392 224"/>
-  <path class="threat-arc-amber" d="M120 288 A140 140 0 0 0 392 288"/>
+  <path d="M120 224 A140 140 0 0 1 392 224" fill="none" stroke="#DC2626" stroke-width="6" stroke-linecap="round"/>
+  <path d="M120 288 A140 140 0 0 0 392 288" fill="none" stroke="#F59E0B" stroke-width="5" stroke-linecap="round"/>
 
   <!-- Danger cross marks (anime threat indicator) -->
-  <line class="cross-x" x1="372" y1="188" x2="396" y2="212"/>
-  <line class="cross-x" x1="396" y1="188" x2="372" y2="212"/>
+  <line x1="372" y1="188" x2="396" y2="212" stroke="#DC2626" stroke-width="6" stroke-linecap="round"/>
+  <line x1="396" y1="188" x2="372" y2="212" stroke="#DC2626" stroke-width="6" stroke-linecap="round"/>
 
   <!-- Small spark / clean indicator -->
-  <path class="spark" d="M116 188 L122 202 L138 202 L126 212 L130 226 L116 216 L102 226 L106 212 L94 202 L110 202 Z" opacity="0.9"/>
+  <path d="M116 188 L122 202 L138 202 L126 212 L130 226 L116 216 L102 226 L106 212 L94 202 L110 202 Z" fill="#10B981" opacity="0.9"/>
 
   <!-- Data stream lines (anime motion) -->
-  <line class="data-stream" x1="256" y1="344" x2="256" y2="396"/>
-  <line class="data-stream-faint" x1="220" y1="356" x2="220" y2="400"/>
-  <line class="data-stream-faint" x1="292" y1="356" x2="292" y2="400"/>
+  <line x1="256" y1="344" x2="256" y2="396" stroke="#2563EB" stroke-width="4" stroke-dasharray="10 7"/>
+  <line x1="220" y1="356" x2="220" y2="400" stroke="#D1D5DB" stroke-width="3" stroke-dasharray="8 5"/>
+  <line x1="292" y1="356" x2="292" y2="400" stroke="#D1D5DB" stroke-width="3" stroke-dasharray="8 5"/>
 
   <!-- Corner brackets (tech anime frame) -->
-  <path class="corner-bracket" d="M88 88 L88 120 L120 120"/>
-  <path class="corner-bracket" d="M424 88 L424 120 L392 120"/>
-  <path class="corner-bracket" d="M88 424 L88 392 L120 392"/>
-  <path class="corner-bracket" d="M424 424 L424 392 L392 392"/>
+  <path d="M88 88 L88 120 L120 120" fill="none" stroke="#6B7280" stroke-width="5" stroke-linecap="round"/>
+  <path d="M424 88 L424 120 L392 120" fill="none" stroke="#6B7280" stroke-width="5" stroke-linecap="round"/>
+  <path d="M88 424 L88 392 L120 392" fill="none" stroke="#6B7280" stroke-width="5" stroke-linecap="round"/>
+  <path d="M424 424 L424 392 L392 392" fill="none" stroke="#6B7280" stroke-width="5" stroke-linecap="round"/>
 </svg>
