@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./ThreatLens.png" width="180" alt="ThreatLens Logo">
+  <img src="./ThreatLens.svg" width="180" alt="ThreatLens Logo">
 </p>
 
 
@@ -288,4 +288,7 @@ MIT License — Free for SOC teams, threat researchers, and security analysts.
 
 ---
 
-*Built for security analysts and threat researchers. Runs on Linux, WSL, and Windows.*
+<p align="center">
+  <i>Pure Python CLI — no compiled binaries, no GUI dependencies.<br>
+  Clone, install, run. Works on Linux, WSL, and Windows.</i>
+</p>
