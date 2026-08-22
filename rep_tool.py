@@ -10,6 +10,13 @@ Usage:
     python3 rep_tool.py 10.0.0.1 --report --output /tmp/report.docx
     python3 rep_tool.py suspicious.site.com --skip-ports
 
+    # Bulk: multiple targets on command line
+    python3 rep_tool.py 1.2.3.4 5.6.7.8 evil.com --report
+    python3 rep_tool.py 10.0.0.0/24 --skip-ports --report
+
+    # Bulk: from file (one target per line)
+    python3 rep_tool.py --batch iocs.txt --report -f docx
+
 Supports: IP addresses and domain names
 Sources:  AlienVault OTX, AbuseIPDB, VirusTotal, Shodan, IPInfo,
           ThreatFox (abuse.ch), URLhaus (abuse.ch), TOR exit list
@@ -540,15 +547,26 @@ _signal.signal(_signal.SIGINT, _sigint_handler)
 def main():
     global _interrupted
     parser = argparse.ArgumentParser(
-        description="ThreatLens",
+        description="ThreatLens — Multi-source OSINT investigation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Single target
   python3 rep_tool.py 8.8.8.8
   python3 rep_tool.py 1.2.3.4 --report
   python3 rep_tool.py evil-domain.com --report --output /tmp/report.docx
   python3 rep_tool.py 10.0.0.1 --skip-ports
   python3 rep_tool.py suspicious.site.com --skip-ports --analyst "John Doe"
+
+  # Bulk: multiple targets on command line
+  python3 rep_tool.py 1.2.3.4 5.6.7.8 evil.com --report
+  python3 rep_tool.py 10.0.0.0/24 --skip-ports --report
+
+  # Bulk: from file (one target per line)
+  python3 rep_tool.py --batch iocs.txt --report -f docx
+
+  # Subdomain enumeration + analysis
+  python3 rep_tool.py example.com --subdomains --report
 
 API Keys (optional, set via env vars or .env file):
   ABUSEIPDB_API_KEY, VIRUSTOTAL_API_KEY, SHODAN_API_KEY,
@@ -558,13 +576,14 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
         """,
     )
 
-    parser.add_argument("target", help="IP address or domain to investigate")
+    parser.add_argument("target", nargs="*", default=[],
+                        help="IP address(es) or domain(s) to investigate (space-separated for bulk)")
     parser.add_argument("--report", "-r", action="store_true",
                         help="Generate report (use --format to choose txt or docx)")
     parser.add_argument("--format", "-f", type=str, default="txt",
                         choices=["txt", "docx"], help="Report format: txt or docx (default: txt)")
     parser.add_argument("--output", "-o", type=str, default=None,
-                        help="Output path for DOCX report")
+                        help="Output path for report (bulk appends target name automatically)")
     parser.add_argument("--skip-ports", action="store_true",
                         help="Skip port scanning (faster)")
     parser.add_argument("--skip-tor", action="store_true",
@@ -584,11 +603,15 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
 
     args = parser.parse_args()
 
+    # Validate: need at least one target source
+    if not args.target and not args.batch and not args.wildcard:
+        parser.error("Provide at least one target, or use --batch / --wildcard")
+
     # Quiet mode suppresses banner
     if not args.quiet:
         print(BANNER)
 
-    # ── Batch Mode ─────────────────────────────────────────────
+    # ── Batch Mode (from file) ──────────────────────────────────
     if args.batch:
         if not os.path.exists(args.batch):
             print(f"Error: Batch file not found: {args.batch}", file=sys.stderr)
@@ -648,19 +671,18 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
         return
 
     # ── Wildcard / Subdomain Expansion ───────────────────────────
-    target = args.target.strip()
-    targets_list = [target]
+    targets_list = [t.strip() for t in args.target if t.strip()]
 
     if args.wildcard:
         print(f"\n  Expanding wildcard: {args.wildcard}")
         targets_list = wildcard_expand(args.wildcard)
         print(f"  Expanded to {len(targets_list)} target(s)\n")
-        args.batch_mode = True  # treat as batch
 
-    elif args.subdomains and is_domain(target):
-        print(f"\n  Enumerating subdomains for: {target}")
+    elif args.subdomains and len(targets_list) == 1 and is_domain(targets_list[0]):
+        domain = targets_list[0]
+        print(f"\n  Enumerating subdomains for: {domain}")
         from subdomain_enum import enumerate_subdomains
-        sub_result = enumerate_subdomains(target)
+        sub_result = enumerate_subdomains(domain)
         subs = sub_result.get("subdomains", [])
         if subs:
             targets_list = subs
@@ -669,11 +691,10 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
                 print(f"    Source: {src}")
         else:
             print(f"  No subdomains found. Falling back to base domain.")
-            targets_list = [target]
-        args.batch_mode = True
+            targets_list = [domain]
 
-    # If expanded to multiple targets, run as batch
-    if len(targets_list) > 1 or getattr(args, 'batch_mode', False):
+    # ── Bulk mode: multiple targets (CLI args, wildcard, or subdomains) ──
+    if len(targets_list) > 1:
         all_results = []
         for i, t in enumerate(targets_list, 1):
             if not args.quiet:
@@ -693,8 +714,8 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
             if not args.quiet:
                 print_full_report(result)
 
-        # Report generation for expanded targets
-        if args.report:
+        # Report generation for bulk targets
+        if args.report and all_results:
             fmt = args.format
             print_section(f"Generating {fmt.upper()} Report ({len(all_results)} targets)...")
             try:
@@ -717,9 +738,25 @@ Free-tier sources (no key needed): IPInfo, OTX, ThreatFox, URLhaus
             except Exception as e:
                 print(f"\n  {Colors.RED}Report error: {e}{Colors.RESET}\n")
 
+        # Bulk summary table
+        if all_results and not args.quiet:
+            print_section("BULK SUMMARY")
+            print(f"  {'Target':<40s} {'Type':<8s} {'Score':<8s} {'Class':<10s} Action")
+            print(f"  {'─'*40} {'─'*8} {'─'*8} {'─'*10} {'─'*8}")
+            for r in all_results:
+                risk = r["risk"]
+                action = "BLOCK" if risk["classification"] in ("CRITICAL", "HIGH") else "MONITOR"
+                color = Colors.RED if action == "BLOCK" else Colors.YELLOW
+                print(f"  {r['target']:<40s} {r['target_type'].upper():<8s} {risk['score']:<8d} "
+                      f"{risk['classification']:<10s} {color}{action}{Colors.RESET}")
+            print(f"\n  {len(all_results)} target(s) analyzed.\n")
+
         return
 
     # ── Single Target Mode ─────────────────────────────────────
+    target = targets_list[0] if targets_list else ""
+    if not target:
+        parser.error("Provide at least one target")
 
     if is_ip(target):
         results = investigate_ip(target, skip_ports=args.skip_ports, skip_tor=args.skip_tor)

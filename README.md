@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./logo_512.png" width="180" alt="ThreatLens Logo">
+  <img src="./ThreatLens.png" width="180" alt="ThreatLens Logo">
 </p>
 
 
@@ -12,17 +12,16 @@
 
 
 <p align="center">
-  A CLI + GUI threat intelligence investigation tool for SOC analysts.
+  A CLI threat intelligence investigation tool for SOC analysts.
 </p>
 
 
 <p align="center">
-  IP & Domain Reputation • OSINT • Subdomain Enumeration • Risk Scoring • SIEM Detection
+  IP & Domain Reputation • OSINT • Subdomain Enumeration • Bulk Analysis • Risk Scoring • SIEM Detection
 </p>
 
 
 ---
-
 <p align="center">
   <a href="https://github.com/ethanx01-H/ThreatLens/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python">
@@ -34,12 +33,11 @@
   <img src="https://img.shields.io/badge/risk_scoring-tiered-red.svg" alt="Risk Scoring">
   <img src="https://img.shields.io/badge/report-DOCX%20%7C%20TXT-orange.svg" alt="Report Formats">
   <img src="https://img.shields.io/badge/detection-Sigma%20%7C%20Splunk%20%7C%20Elastic-purple.svg" alt="SIEM Rules">
-  <img src="https://img.shields.io/badge/built_with-Nuitka%20%7C%20PyInstaller-brightgreen.svg" alt="Build Tools">
 </p>
 
 ---
 
-## Quick Start (Linux / WSL)
+## Quick Start
 
 ```bash
 # Clone
@@ -49,7 +47,7 @@ cd ThreatLens
 # Install dependencies
 pip install -r requirements.txt
 
-# Investigate an IP
+# Investigate a single IP
 python3 rep_tool.py 1.2.3.4
 
 # Investigate a domain with TXT report
@@ -58,49 +56,21 @@ python3 rep_tool.py suspicious-domain.com --report
 # DOCX report (IC Incident Report template style)
 python3 rep_tool.py 1.2.3.4 --report --format docx
 
+# Bulk: multiple targets on command line
+python3 rep_tool.py 1.2.3.4 5.6.7.8 evil.com --report
+
+# Bulk: CIDR range
+python3 rep_tool.py 10.0.0.0/24 --skip-ports --report
+
+# Bulk: from file (one target per line)
+python3 rep_tool.py --batch iocs.txt --report -f docx
+
 # Subdomain enumeration + analysis
 python3 rep_tool.py example.com --subdomains --report
 
 # Wildcard: scan a whole IP range
 python3 rep_tool.py -w '192.168.1.*' --skip-ports
-
-# Batch from file
-python3 rep_tool.py --batch iocs.txt --report -f docx
 ```
-
----
-
-## Windows Executable
-
-A standalone single-file `.exe` is available — no Python installation required.
-
-### Download
-
-Download `ThreatLens.exe` from the [releases](https://github.com/ethanx01-H/ThreatLens/releases) page.
-
-### Build from Source
-
-```cmd
-# Nuitka (recommended — native C compiled, clean AV)
-build_nuitka.bat
-
-# PyInstaller (alternative)
-build.bat
-```
-
-Output: `dist\ThreatLens.exe` (~19 MB standalone)
-
-### GUI Usage
-
-1. Double-click `ThreatLens.exe`
-2. Enter an IP or domain, click **ANALYZE** (or press Enter)
-3. Click **STOP** to cancel a running analysis
-4. Click **SUBS** to enumerate and analyze all subdomains
-5. Click **BULK** to analyze multiple targets
-6. Click **REPORT** to export (TXT or DOCX toggle)
-7. Click **SETTINGS** to configure API keys (masked, persistent)
-
-API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works forever.
 
 ---
 
@@ -109,6 +79,7 @@ API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works f
 | Feature | Description |
 |---------|-------------|
 | **7 OSINT Sources** | AlienVault OTX, AbuseIPDB, VirusTotal, Shodan, IPInfo, ThreatFox, URLhaus |
+| **Bulk Analysis** | Multiple targets on CLI, file-based batch, CIDR ranges, wildcard patterns |
 | **Subdomain Enumeration** | crt.sh, OTX passive DNS, Shodan, VirusTotal, DNS brute force (140+ names) |
 | **Wildcard Search** | `*.domain.com`, `192.168.1.*`, CIDR ranges (`10.0.0.0/24`) |
 | **Network Recon** | DNS (A/AAAA/MX/NS/TXT/SOA/CNAME), reverse DNS, WHOIS, TCP port scan with banner grab |
@@ -117,8 +88,6 @@ API keys are saved to `%APPDATA%\ThreatLens\api_keys.json` — set once, works f
 | **Three-State Verdict** | MALICIOUS / BENIGN / NOT CHECKED per source |
 | **Report Export** | TXT or DOCX — IC Incident Report template style, color-coded tables, IOC tables |
 | **SIEM Detection Rules** | Sigma, Splunk, Elastic SIEM (EQL + KQL + JSON import) |
-| **Settings Panel** | GUI API key management with masked input, persistent storage |
-| **Bulk Analyze** | Queue multiple targets — all options work in all modes |
 | **TOR Detection** | Live TOR exit node list check |
 
 ---
@@ -177,11 +146,12 @@ usage: rep_tool.py [-h] [--report] [--format {txt,docx}] [--output OUTPUT]
                    [--skip-ports] [--skip-tor] [--analyst ANALYST]
                    [--classification CLASSIFICATION] [--quiet] [--batch BATCH]
                    [--subdomains] [--wildcard WILDCARD]
-                   target
+                   [target ...]
 ```
 
 | Flag | Short | Description |
 |------|-------|-------------|
+| `target` | | One or more IPs/domains (space-separated for bulk) |
 | `--report` | `-r` | Generate report |
 | `--format {txt,docx}` | `-f` | Report format (default: txt) |
 | `--output OUTPUT` | `-o` | Custom output path |
@@ -203,6 +173,12 @@ python3 rep_tool.py 185.220.101.1
 # Domain with DOCX report
 python3 rep_tool.py evil-domain.com --report -f docx
 
+# Bulk: multiple targets on command line
+python3 rep_tool.py 1.2.3.4 5.6.7.8 evil.com --report
+
+# Bulk: CIDR range with summary table
+python3 rep_tool.py 10.0.0.0/24 --skip-ports --report
+
 # Subdomain enumeration + analysis
 python3 rep_tool.py example.com --subdomains --report
 
@@ -222,11 +198,7 @@ python3 rep_tool.py --batch iocs.txt --report -f txt
 
 ### API Keys
 
-Free-tier sources (IPInfo, OTX) work without keys. For enhanced coverage:
-
-**GUI:** Click SETTINGS -> enter keys -> SAVE (masked, persistent)
-
-**CLI:** Set via environment variables, `.env` file, or `api_keys.json`
+Free-tier sources (IPInfo, OTX) work without keys. For enhanced coverage, set via environment variables, `.env` file, or `api_keys.json`.
 
 | Source | Free Tier | Get Key |
 |--------|-----------|---------|
@@ -245,26 +217,21 @@ Free-tier sources (IPInfo, OTX) work without keys. For enhanced coverage:
 ```
 ThreatLens/
 ├── rep_tool.py          # CLI entry point & orchestrator
-├── rep_gui.py           # GUI (tkinter, navy theme)
 ├── config.py            # API keys, constants, risk weights, whitelists
 ├── api_sources.py       # 7 OSINT API integrations with retry logic
 ├── dns_recon.py         # DNS, WHOIS, port scan, HTTP probe, TLS
 ├── risk_engine.py       # Tiered risk scoring with known-good whitelists
 ├── report_gen.py        # TXT + DOCX report generators (Sigma/Splunk/Elastic)
 ├── subdomain_enum.py    # Subdomain discovery (crt.sh, OTX, Shodan, VT, brute)
-├── build.bat            # PyInstaller build script
-├── build_nuitka.bat     # Nuitka build script (recommended)
-├── ThreatLens.spec      # PyInstaller spec
-├── version_info.txt     # Windows PE version metadata
-├── app.ico              # Application icon
+├── generate_sample.py   # Generate a sample DOCX report
+├── .env.example         # API key template
 ├── requirements.txt
 └── README.md
 ```
 
 | Module | Purpose |
 |--------|---------|
-| `rep_tool.py` | CLI: argparse, orchestration, Ctrl+C handler |
-| `rep_gui.py` | GUI: navy theme, STOP/BULK/SUBS buttons, settings dialog |
+| `rep_tool.py` | CLI: argparse, bulk analysis, orchestration, Ctrl+C handler |
 | `config.py` | APPDATA persistence, known-good domains/ASNs, API key loading |
 | `api_sources.py` | OTX, AbuseIPDB, VT, Shodan, IPInfo, ThreatFox, URLhaus |
 | `dns_recon.py` | DNS resolution, reverse DNS, WHOIS, port scan, HTTP/TLS probe |
@@ -280,11 +247,11 @@ ThreatLens/
 |----------|-------------|
 | **Incident Response** | Investigate suspicious IPs/domains from SIEM alerts |
 | **Threat Hunting** | Validate IOCs from threat intelligence feeds |
+| **Bulk IOC Processing** | Mass-analyze indicators from threat feeds or CIDR ranges |
 | **Subdomain Discovery** | Map attack surface of a target domain |
 | **Proactive Defense** | Screen indicators before firewall rule changes |
 | **Management Reporting** | Generate professional DOCX/TXT reports |
 | **SIEM Integration** | JSON output + Elastic/Splunk/Sigma detection rules |
-| **Bulk IOC Processing** | Mass-analyze indicators from threat feeds |
 | **Network Mapping** | Wildcard IP range scanning with risk assessment |
 
 ---
@@ -294,8 +261,7 @@ ThreatLens/
 ### API Key Storage
 - Keys stored in `%APPDATA%\ThreatLens\api_keys.json` (Windows) or `~/.config/threatlens/` (Linux)
 - Keys never logged or included in reports
-- Keys loaded at runtime, not compiled into the exe
-- Hot-reload: changing keys in Settings takes effect immediately
+- Keys loaded at runtime from env vars, `.env`, or `api_keys.json`
 
 ### Input Validation
 - IP addresses validated via regex before processing
